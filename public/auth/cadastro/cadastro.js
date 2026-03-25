@@ -27,7 +27,7 @@ document.getElementById("formCadastro").addEventListener("submit", async functio
     document.querySelector('button[type="submit"]').disabled = false;
 
     if (response.ok) {
-      localStorage.setItem('usuarioLogado', JSON.stringify({ nome, id: Date.now() })); // Simula user
+      // Após cadastro, o ideal é o usuário fazer login para validar a senha ou o servidor retornar o objeto user real
       // Animação sucesso
       document.querySelector('.glass-card').style.transform = 'scale(1.02)';
       setTimeout(() => {

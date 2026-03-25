@@ -147,7 +147,68 @@ body::after {
     box-shadow: 0 30px 60px rgba(245,158,11,0.6);
 }
 
-/* Comments Sidebar */
+/* Floating Toggle Button */
+.floating-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: linear-gradient(135deg, var(--primary), var(--primary-glow));
+    color: white;
+    border: none;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(59,130,246,0.4);
+    transition: all 0.3s ease;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.floating-btn .btn-text {
+    position: absolute;
+    right: 70px;
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(10px);
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-glass);
+}
+
+.floating-btn:hover .btn-text {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.floating-btn:hover {
+    transform: scale(1.1) translateY(-5px);
+    box-shadow: 0 20px 40px rgba(59,130,246,0.6);
+}
+
+@media (max-width: 768px) {
+    .floating-btn {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 56px;
+        height: 56px;
+        font-size: 1.3rem;
+    }
+    .floating-btn .btn-text {
+        display: none;
+    }
+}
+
+/* Comments Sidebar - Enhanced */
 #secao2 {
     position: fixed;
     top: 0;
@@ -158,14 +219,55 @@ body::after {
     backdrop-filter: blur(25px);
     border-left: 1px solid var(--border-glass);
     padding: 2rem;
-    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     z-index: 1000;
     overflow-y: auto;
-    box-shadow: -10px 0 50px rgba(0,0,0,0.3);
+    box-shadow: -20px 0 60px rgba(0,0,0,0.4);
 }
 
 #secao2.open {
     right: 0;
+    transform: scale(1);
+}
+
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.sidebar-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.close-sidebar {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-sidebar:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    transform: rotate(90deg);
 }
 
 #secao2 h2 {
@@ -178,7 +280,7 @@ body::after {
 }
 
 #comentariosExistentes {
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 240px);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -200,27 +302,57 @@ body::after {
     background: var(--glass-hover);
     border: 1px solid var(--border-glass);
     border-radius: 16px;
-    padding: 1.5rem;
-    transition: all 0.2s;
+    padding: 1.2rem;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
 .comentario-item:hover {
     background: rgba(255,255,255,0.25);
-    transform: translateX(5px);
+    transform: translateX(4px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.comentario-item .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-glow));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: white;
+    flex-shrink: 0;
+    margin-right: 1rem;
+}
+
+.comentario-item .comment-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.comentario-item .comment-meta {
+    flex: 1;
 }
 
 .comentario-item strong {
     color: var(--primary);
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
-.comentario-item p {
-    color: var(--text);
-    margin: 0.5rem 0;
-    line-height: 1.5;
+.comentario-item .comment-time {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
 }
 
-/* Comment Form */
+.comentario-item p {\n    color: var(--text);\n    line-height: 1.5;\n    margin: 0 0 0.5rem 0;\n}\n\n.pin-badge {\n    background: linear-gradient(135deg, #eab308, #f59e0b);\n    color: white;\n    padding: 0.25rem 0.75rem;\n    border-radius: 12px;\n    font-size: 0.75rem;\n    font-weight: 600;\n    display: inline-flex;\n    align-items: center;\n    gap: 0.25rem;\n    margin-bottom: 0.5rem;\n    box-shadow: 0 2px 8px rgba(234,179,8,0.4);\n}\n\n.reactions {\n    display: flex;\n    gap: 0.5rem;\n    margin-top: 0.5rem;\n}\n\n.react-btn {\n    background: rgba(255,255,255,0.2);\n    border: 1px solid rgba(255,255,255,0.3);\n    color: var(--text-muted);\n    padding: 0.25rem 0.5rem;\n    border-radius: 8px;\n    font-size: 0.9rem;\n    cursor: pointer;\n    transition: all 0.2s;\n    display: flex;\n    align-items: center;\n    gap: 0.25rem;\n}\n\n.react-btn:hover {\n    background: var(--glass-hover);\n    color: var(--text);\n    transform: scale(1.05);\n}\n\n.comentario-item.pinned {\n    border-color: #eab308;\n    box-shadow: 0 0 20px rgba(234,179,8,0.3);\n}
+
+/* Comment Form Enhanced */
 #comentarioForm {
     background: var(--glass);
     padding: 1.5rem;
@@ -270,6 +402,8 @@ body::after {
     cursor: pointer;
     transition: all 0.3s;
     box-shadow: 0 10px 25px rgba(59,130,246,0.4);
+    position: relative;
+    overflow: hidden;
 }
 
 #btnEnviarComentario:hover:not(:disabled) {
@@ -277,9 +411,46 @@ body::after {
     box-shadow: 0 15px 35px rgba(59,130,246,0.5);
 }
 
-#btnEnviarComentario:disabled {
+#btnEnviarComentario:disabled,
+#btnEnviarComentario.loading {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+#btnEnviarComentario.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.delete-btn {
+    background: rgba(239,68,68,0.8);
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.delete-btn:hover {
+    background: #ef4444;
+    transform: scale(1.05);
 }
 
 /* Popup */
@@ -370,9 +541,11 @@ body::after {
     #secao2 {
         right: -100%;
         width: 100%;
+        padding: 1.5rem;
     }
     #secao2.open {
         right: 0;
+        transform: scale(1);
     }
     #botaoLogin {
         position: fixed;
@@ -405,3 +578,4 @@ body::after {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--primary-glow);
 }
+

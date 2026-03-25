@@ -64,16 +64,7 @@ async function loadComments() {
             container.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fas fa-comment-slash" style="font-size: 4rem;"></i><p>Nenhum comentário</p></div>';
         } else {
             container.innerHTML = comments.map(c => `
-                <div class="comment-item">
-                    <div>
-                        <strong style="color: #3b82f6;">${c.autor}</strong>
-                        <br><small style="color: var(--text-muted);">${new Date(c.criado).toLocaleString()}</small>
-                        <p style="margin-top: 0.5rem; color: #1e293b;">${c.texto}</p>
-                    </div>
-                    <button class="delete-btn" onclick="deleteComment(${c.id})">
-                        <i class="fas fa-trash"></i> Apagar
-                    </button>
-                </div>
+                <div class="comment-item">\n                    <div>\n                        <strong style="color: #3b82f6;">${c.autor}</strong>\n                        <br><small style="color: var(--text-muted);">${new Date(c.criado).toLocaleString()}</small>\n                        <p style="margin-top: 0.5rem; color: #1e293b;">${c.texto}</p>\n                        ${c.is_pinned ? '<span class="admin-pin-badge"><i class="fas fa-thumbtack"></i> Fixado</span>' : ''}\n                    </div>\n                    <div class="admin-actions">\n                        <button class="pin-btn" onclick="togglePin(${c.id})">\n                            <i class="fas fa-thumbtack${c.is_pinned ? ' pinned' : ''}"></i>\n                        </button>\n                        <button class="delete-btn" onclick="deleteComment(${c.id})">\n                            <i class="fas fa-trash"></i> Apagar\n                        </button>\n                    </div>\n                </div>
             `).join('');
         }
         counter.textContent = `${comments.length} comentários`;
@@ -82,15 +73,7 @@ async function loadComments() {
     }
 }
 
-window.deleteComment = async (id) => {
-    if (confirm('Apagar comentário?')) {
-        await fetch(`/api/comentarios/${id}`, {
-            method: 'DELETE',
-            headers: { 'x-admin-token': ADMIN_TOKEN }
-        });
-        loadComments();
-    }
-};
+window.deleteComment = async (id) => {\n    if (confirm('Apagar comentário?')) {\n        await fetch(`/api/comentarios/${id}`, {\n            method: 'DELETE',\n            headers: { 'x-admin-token': ADMIN_TOKEN }\n        });\n        loadComments();\n    }\n};\n\nwindow.togglePin = async (id) => {\n    if (confirm('Fixar/desfixar comentário no topo?')) {\n        await fetch(`/api/comentarios/${id}/pin`, {\n            method: 'PUT',\n            headers: { 'x-admin-token': ADMIN_TOKEN }\n        });\n        loadComments();\n    }\n};
 
 document.getElementById('refresh-comments').onclick = loadComments;
 
