@@ -38,7 +38,9 @@ async function initDB() {
         autor TEXT NOT NULL,
         texto TEXT NOT NULL,
         parent_id INTEGER DEFAULT NULL, 
-        reactions TEXT DEFAULT '{\"👍\":0,\"👎\":0,\"❤️\":0}',
+        reactions TEXT DEFAULT '{"👍":0,"👎":0,"❤️":0}',
+        user_reactions TEXT DEFAULT '{}',
+        is_pinned INTEGER DEFAULT 0,
         criado DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
@@ -98,7 +100,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/comentarios', async (req, res) => {
     try {
         const db = await initDB();
-        const comentarios = await db.all('SELECT * FROM comentarios ORDER BY criado DESC');
+const comentarios = await db.all('SELECT * FROM comentarios ORDER BY is_pinned DESC, criado DESC');
         await db.close();
         res.json(comentarios);
     } catch (error) {
@@ -109,7 +111,8 @@ app.get('/api/comentarios', async (req, res) => {
 
 // POST comment
 app.post('/api/comentarios', async (req, res) => {
-    const { autor, texto, parent_id, is_admin } = req.body;
+    const { autor, texto, parent_id } = req.body;
+    const is_admin = autor === 'administrador_turma205-1';
 
     if (!autor || !texto) {
         return res.status(400).json({ error: 'Autor e texto são obrigatórios' });
@@ -131,8 +134,8 @@ app.post('/api/comentarios', async (req, res) => {
         }
 
         const result = await db.run(
-            'INSERT INTO comentarios (autor, texto, parent_id) VALUES (?, ?, ?)', 
-            [autor, texto, parent_id || null]
+            'INSERT INTO comentarios (autor, texto, parent_id, reactions, user_reactions, is_pinned) VALUES (?, ?, ?, ?, "{}", 0)', 
+            [autor, texto, parent_id || null, JSON.stringify({"👍":0,"👎":0,"❤️":0})]
         );
         const comentario = await db.get('SELECT * FROM comentarios WHERE id = ?', [result.lastID]);
         await db.close();
@@ -141,6 +144,53 @@ app.post('/api/comentarios', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Erro ao criar comentário' });
     }
+});
+
+// --- Rotas de Reação e Fixação (Integradas do pin_react.js) ---
+
+app.post('/api/comentarios/:id/react', async (req, res) => {
+    const { id } = req.params;
+    const { emoji, autor } = req.body;
+    const validEmojis = ['👍', '❤️', '👎'];
+
+    if (!validEmojis.includes(emoji) || !autor) return res.status(400).json({ error: 'Dados inválidos' });
+
+    try {
+        const db = await initDB();
+        const comment = await db.get('SELECT reactions, user_reactions FROM comentarios WHERE id = ?', [id]);
+        if (!comment) return res.status(404).json({ error: 'Não encontrado' });
+
+        let reactions = JSON.parse(comment.reactions || '{"👍":0,"👎":0,"❤️":0}');
+        let userReactions = JSON.parse(comment.user_reactions || '{}');
+
+        if (userReactions[autor] === emoji) {
+            delete userReactions[autor];
+            reactions[emoji] = Math.max(0, (reactions[emoji] || 0) - 1);
+        } else {
+            if (userReactions[autor]) reactions[userReactions[autor]] = Math.max(0, reactions[userReactions[autor]] - 1);
+            userReactions[autor] = emoji;
+            reactions[emoji] = (reactions[emoji] || 0) + 1;
+        }
+
+        await db.run('UPDATE comentarios SET reactions = ?, user_reactions = ? WHERE id = ?', [JSON.stringify(reactions), JSON.stringify(userReactions), id]);
+        await db.close();
+        res.json({ reactions });
+    } catch (e) { res.status(500).json({ error: 'Erro na reação' }); }
+});
+
+app.put('/api/comentarios/:id/pin', async (req, res) => {
+    const { id } = req.params;
+    const adminToken = req.headers['x-admin-token'];
+    if (adminToken !== 'turma205-admin') return res.status(403).json({ error: 'Acesso negado' });
+
+    try {
+        const db = await initDB();
+        const comment = await db.get('SELECT is_pinned FROM comentarios WHERE id = ?', [id]);
+        const newPinned = comment.is_pinned ? 0 : 1;
+        await db.run('UPDATE comentarios SET is_pinned = ? WHERE id = ?', [newPinned, id]);
+        await db.close();
+        res.json({ is_pinned: newPinned });
+    } catch (e) { res.status(500).json({ error: 'Erro ao fixar' }); }
 });
 
 // UPDATE comment (admin)
