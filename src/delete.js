@@ -8,7 +8,7 @@ async function limparUsuarios() {
     });
 
     await db.exec(`
-        DELETE FROM usuarios WHERE id > 0;
+        DELETE FROM usuarios WHERE id > 1;
     `);
 
     await db.close();

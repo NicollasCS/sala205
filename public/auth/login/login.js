@@ -1,15 +1,20 @@
+// Login JS - Estilo Moderno
 document.getElementById("formLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
 
-  const nome = document.getElementById("nome").value;
+  const nome = document.getElementById("nome").value.trim();
   const senha = document.getElementById("senha").value;
 
   if (!nome || !senha) {
-    alert("Por favor, preencha todos os campos!");
+    document.getElementById('formError').textContent = 'Preencha todos os campos!';
+    document.getElementById('formError').style.display = 'block';
     return;
   }
 
   try {
+    document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+    document.querySelector('button[type="submit"]').disabled = true;
+
     const response = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -18,16 +23,33 @@ document.getElementById("formLogin").addEventListener("submit", async function (
 
     const data = await response.json();
 
+    document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-arrow-right"></i> Entrar';
+    document.querySelector('button[type="submit"]').disabled = false;
+
     if (response.ok) {
-      localStorage.setItem('usuarioLogado', JSON.stringify({ nome, senha }));
+      localStorage.setItem('usuarioLogado', JSON.stringify(data.user));
       localStorage.setItem('popupVisto', 'true');
-      alert(data.message || 'Login realizado com sucesso!');
-      window.location.href = '../../index.html';
+      // Animação de sucesso
+      document.querySelector('.glass-card').style.transform = 'scale(1.02)';
+      setTimeout(() => {
+        window.location.href = '../../index.html';
+      }, 800);
     } else {
-      alert(data.error || 'Usuário ou senha inválidos');
+      document.getElementById('formError').textContent = data.error || 'Erro no login';
+      document.getElementById('formError').style.display = 'block';
     }
   } catch (error) {
+    document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-arrow-right"></i> Entrar';
+    document.querySelector('button[type="submit"]').disabled = false;
     console.error('Erro:', error);
-    alert('Erro ao conectar com o servidor');
+    document.getElementById('formError').textContent = 'Erro de conexão. Verifique o servidor.';
+    document.getElementById('formError').style.display = 'block';
   }
+});
+
+// Limpar erro ao digitar
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', () => {
+        document.getElementById('formError').style.display = 'none';
+    });
 });
