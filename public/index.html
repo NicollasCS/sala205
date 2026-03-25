@@ -30,5 +30,25 @@
         </div>
     </div>
 
+    <section id="secao2">
+        <div class="container divComentarios">
+            <h2>Comentários:</h2>
+
+            <div id="comentariosExistentes"></div>
+
+            <div id="comentarioForm" class="comentario-form">
+                <div style="position:relative;">
+                  <textarea id="novoComentario" placeholder="Escreva seu comentário... (máx 120 chars)" rows="4" maxlength="120"></textarea>
+                  <small id="charCount" style="position:absolute; bottom:5px; right:10px; color:#666; font-size:0.8rem;">0/120</small>
+                </div>
+                <button id="btnEnviarComentario" type="button">Enviar comentário</button>
+            </div>
+
+            <div id="mensagemSemConta" class="mensagem-erro" style="display:none;">
+                Você precisa estar logado para comentar. <a href="./auth/cadastro/cadastro.html">Cadastre-se</a> ou <a href="./auth/login/login.html">faça login</a>.
+            </div>
+        </div>
+    </section>
+
 </body>
 </html>
