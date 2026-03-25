@@ -9,9 +9,25 @@
 </head>
 <body>
 
-    <div class="container">
-        <h1>Bem-vindo ao Anexo 205</h1>
-        <p>Este é um exemplo simples de página HTML com CSS e JavaScript.</p>
+    <section id="secaoTopo" class="center texto">
+        <div id="divTopo">
+            <h1>Sala 205 - Anexo</h1>
+            <p>Irmã Maria Teresa (EEBIMT)</p>
+        </div>
+        <button type="button" id="botaoLogin">Login</button>
+    </section>
+    <div class="container center">
+        <button type="button" id="conhecer">Conheça mais sobre</button>
+    </div>
+
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <h2>Faça seu login</h2>
+    
+            <button onclick="logar()" class="buttonPopup">Já tenho uma conta</button>
+            <button onclick="criarConta()" class="buttonPopup">Não tenho uma conta</button>
+            <button onclick="fecharPopup()" class="buttonPopup">Mais tarde</button>
+        </div>
     </div>
 
 </body>
