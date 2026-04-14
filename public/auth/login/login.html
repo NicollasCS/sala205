@@ -9,28 +9,47 @@
     <link rel="stylesheet" href="../../index.css">
     <script src="login.js" defer></script>
 </head>
+
 <body style="background: linear-gradient(145deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+
     <div class="glass-card" style="max-width: 450px; width: 100%; padding: 3rem; backdrop-filter: blur(20px); background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
+ 
         <div style="text-align: center; margin-bottom: 2.5rem;">
+
             <i class="fas fa-sign-in-alt" style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"></i>
-            <h1 style="font-size: 2rem; font-weight: 700; color: white; margin-bottom: 0.5rem;">Bem-vindo de volta</h1>
-            <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem;">Faça login para continuar</p>
+
+            <h1 style="font-size: 2rem; font-weight: 700; color: white; margin-bottom: 0.5rem;">
+                Bem-vindo de volta
+            </h1>
+
+            <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem;">
+                Faça login para continuar
+            </p>
+
         </div>
+
         <form id="formLogin">
+
             <div style="margin-bottom: 1.5rem;">
                 <input type="text" id="nome" placeholder="Nome de usuário" required style="width: 100%; padding: 1.2rem; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; color: white; font-size: 1rem; transition: all 0.3s; backdrop-filter: blur(10px);">
             </div>
+
             <div style="margin-bottom: 2rem;">
                 <input type="password" id="senha" placeholder="Senha" required style="width: 100%; padding: 1.2rem; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; color: white; font-size: 1rem; transition: all 0.3s; backdrop-filter: blur(10px);">
             </div>
+
             <button type="submit" style="width: 100%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 1.2rem; border-radius: 16px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 10px 30px rgba(59,130,246,0.4);">
                 <i class="fas fa-arrow-right"></i> Entrar
             </button>
+
         </form>
+
         <p style="text-align: center; margin-top: 1.5rem; color: rgba(255,255,255,0.7);">
             Não tem conta? <a href="../cadastro/cadastro.html" style="color: #3b82f6; font-weight: 500;">Cadastre-se</a>
         </p>
+
         <p id="formError" style="color: #f87171; text-align: center; margin-top: 1rem; display: none;"></p>
+
     </div>
 </body>
 </html>
