@@ -73,7 +73,7 @@ async function loadComments() {
     }
 }
 
-window.deleteComment = async (id) => {\n    if (confirm('Apagar comentário?')) {\n        await fetch(`/api/comentarios/${id}`, {\n            method: 'DELETE',\n            headers: { 'x-admin-token': ADMIN_TOKEN }\n        });\n        loadComments();\n    }\n};\n\nwindow.togglePin = async (id) => {\n    if (confirm('Fixar/desfixar comentário no topo?')) {\n        await fetch(`/api/comentarios/${id}/pin`, {\n            method: 'PUT',\n            headers: { 'x-admin-token': ADMIN_TOKEN }\n        });\n        loadComments();\n    }\n};
+window.deleteComment = async (id) => {    if (confirm('Apagar comentário?')) {        await fetch(`/api/comentarios/${id}`, {            method: 'DELETE',            headers: { 'x-admin-token': ADMIN_TOKEN }        });        loadComments();    }};window.togglePin = async (id) => {    if (confirm('Fixar/desfixar comentário no topo?')) {        await fetch(`/api/comentarios/${id}/pin`, {            method: 'PUT',            headers: { 'x-admin-token': ADMIN_TOKEN }        });        loadComments();    }};
 
 document.getElementById('refresh-comments').onclick = loadComments;
 

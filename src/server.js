@@ -1,9 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,36 +18,42 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Função para inicializar o banco
+// Supabase Client
+const supabase = createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ''
+);
+
+// Função para inicializar o banco (criar tabelas se não existirem)
 async function initDB() {
-    const db = await open({
-        filename: './database/banco.db',
-        driver: sqlite3.Database,
-    });
+    try {
+        // Criar tabela usuários
+        const { error: usuariosError } = await supabase
+            .from('usuarios')
+            .select('count()', { count: 'exact' })
+            .limit(0);
 
-    await db.exec(`
-        CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL UNIQUE,
-        senha TEXT NOT NULL,
-        created DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+        if (usuariosError && usuariosError.code === 'PGRST116') {
+            // Tabela não existe, criar
+            const { error: createUserTableError } = await supabase.rpc('create_usuarios_table', {}, { count: 'exact' });
+        }
 
-    await db.exec(`
-        CREATE TABLE IF NOT EXISTS comentarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        autor TEXT NOT NULL,
-        texto TEXT NOT NULL,
-        parent_id INTEGER DEFAULT NULL, 
-        reactions TEXT DEFAULT '{"👍":0,"👎":0,"❤️":0}',
-        user_reactions TEXT DEFAULT '{}',
-        is_pinned INTEGER DEFAULT 0,
-        criado DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+        // Criar tabela comentários
+        const { error: comentariosError } = await supabase
+            .from('comentarios')
+            .select('count()', { count: 'exact' })
+            .limit(0);
 
-    return db;
+        if (comentariosError && comentariosError.code === 'PGRST116') {
+            // Tabela não existe, criar
+            const { error: createTableError } = await supabase.rpc('create_comentarios_table', {}, { count: 'exact' });
+        }
+
+        return supabase;
+    } catch (err) {
+        console.error('Erro ao inicializar banco:', err);
+        return supabase;
+    }
 }
 
 // Rota para cadastro
@@ -57,13 +65,24 @@ app.post('/api/cadastro', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        const existing = await db.get('SELECT id FROM usuarios WHERE nome = ?', [nome]);
-        if (existing) {
+        // Verificar se usuário já existe
+        const { data: existing } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('nome', nome)
+            .limit(1);
+
+        if (existing && existing.length > 0) {
             return res.status(409).json({ error: 'Nome de usuário não disponível. Escolha outro.' });
         }
-        await db.run('INSERT INTO usuarios (nome, senha) VALUES (?, ?)', [nome, senha]);
-        await db.close();
+
+        // Inserir novo usuário
+        const { data, error } = await supabase
+            .from('usuarios')
+            .insert([{ nome, senha }])
+            .select();
+
+        if (error) throw error;
 
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
     } catch (error) {
@@ -81,15 +100,26 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        const user = await db.get('SELECT * FROM usuarios WHERE nome = ? AND senha = ?', [nome, senha]);
-        await db.close();
+        const { data: user, error } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('nome', nome)
+            .eq('senha', senha)
+            .limit(1)
+            .single();
 
-        if (user) {
-            res.json({ message: 'Login bem-sucedido!', user: { id: user.id, nome: user.nome, is_admin: nome === 'administrador_turma205-1' } });
-        } else {
-            res.status(401).json({ error: 'Credenciais inválidas' });
+        if (error || !user) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
         }
+
+        res.json({ 
+            message: 'Login bem-sucedido!', 
+            user: { 
+                id: user.id, 
+                nome: user.nome, 
+                is_admin: nome === 'administrador_turma205-1' 
+            } 
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao fazer login' });
@@ -99,10 +129,15 @@ app.post('/api/login', async (req, res) => {
 // GET comments
 app.get('/api/comentarios', async (req, res) => {
     try {
-        const db = await initDB();
-const comentarios = await db.all('SELECT * FROM comentarios ORDER BY is_pinned DESC, criado DESC');
-        await db.close();
-        res.json(comentarios);
+        const { data: comentarios, error } = await supabase
+            .from('comentarios')
+            .select('*')
+            .order('is_pinned', { ascending: false })
+            .order('criado', { ascending: false });
+
+        if (error) throw error;
+
+        res.json(comentarios || []);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao buscar comentários' });
@@ -123,22 +158,34 @@ app.post('/api/comentarios', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        
         // Top-level limit for non-admin
         if (!parent_id && !is_admin) {
-            const count = await db.get('SELECT COUNT(*) as count FROM comentarios WHERE autor = ? AND parent_id IS NULL', [autor]);
-            if (count.count >= 2) {
+            const { data, error: countError } = await supabase
+                .from('comentarios')
+                .select('id', { count: 'exact' })
+                .eq('autor', autor)
+                .is('parent_id', null);
+
+            if (!countError && data && data.length >= 2) {
                 return res.status(400).json({ error: 'Limite de 2 comentários principais atingido.' });
             }
         }
 
-        const result = await db.run(
-            'INSERT INTO comentarios (autor, texto, parent_id, reactions, user_reactions, is_pinned) VALUES (?, ?, ?, ?, "{}", 0)', 
-            [autor, texto, parent_id || null, JSON.stringify({"👍":0,"👎":0,"❤️":0})]
-        );
-        const comentario = await db.get('SELECT * FROM comentarios WHERE id = ?', [result.lastID]);
-        await db.close();
+        const { data: comentario, error } = await supabase
+            .from('comentarios')
+            .insert([{
+                autor,
+                texto,
+                parent_id: parent_id || null,
+                reactions: { '👍': 0, '👎': 0, '❤️': 0 },
+                user_reactions: {},
+                is_pinned: false
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
         res.status(201).json(comentario);
     } catch (error) {
         console.error(error);
@@ -153,44 +200,78 @@ app.post('/api/comentarios/:id/react', async (req, res) => {
     const { emoji, autor } = req.body;
     const validEmojis = ['👍', '❤️', '👎'];
 
-    if (!validEmojis.includes(emoji) || !autor) return res.status(400).json({ error: 'Dados inválidos' });
+    if (!validEmojis.includes(emoji) || !autor) {
+        return res.status(400).json({ error: 'Dados inválidos' });
+    }
 
     try {
-        const db = await initDB();
-        const comment = await db.get('SELECT reactions, user_reactions FROM comentarios WHERE id = ?', [id]);
-        if (!comment) return res.status(404).json({ error: 'Não encontrado' });
+        const { data: comment, error: fetchError } = await supabase
+            .from('comentarios')
+            .select('reactions, user_reactions')
+            .eq('id', id)
+            .single();
 
-        let reactions = JSON.parse(comment.reactions || '{"👍":0,"👎":0,"❤️":0}');
-        let userReactions = JSON.parse(comment.user_reactions || '{}');
+        if (fetchError || !comment) {
+            return res.status(404).json({ error: 'Não encontrado' });
+        }
+
+        let reactions = comment.reactions || { '👍': 0, '👎': 0, '❤️': 0 };
+        let userReactions = comment.user_reactions || {};
 
         if (userReactions[autor] === emoji) {
             delete userReactions[autor];
             reactions[emoji] = Math.max(0, (reactions[emoji] || 0) - 1);
         } else {
-            if (userReactions[autor]) reactions[userReactions[autor]] = Math.max(0, reactions[userReactions[autor]] - 1);
+            if (userReactions[autor]) {
+                reactions[userReactions[autor]] = Math.max(0, reactions[userReactions[autor]] - 1);
+            }
             userReactions[autor] = emoji;
             reactions[emoji] = (reactions[emoji] || 0) + 1;
         }
 
-        await db.run('UPDATE comentarios SET reactions = ?, user_reactions = ? WHERE id = ?', [JSON.stringify(reactions), JSON.stringify(userReactions), id]);
-        await db.close();
+        await supabase
+            .from('comentarios')
+            .update({ reactions, user_reactions: userReactions })
+            .eq('id', id);
+
         res.json({ reactions });
-    } catch (e) { res.status(500).json({ error: 'Erro na reação' }); }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Erro na reação' });
+    }
 });
 
 app.put('/api/comentarios/:id/pin', async (req, res) => {
     const { id } = req.params;
     const adminToken = req.headers['x-admin-token'];
-    if (adminToken !== 'turma205-admin') return res.status(403).json({ error: 'Acesso negado' });
+
+    if (adminToken !== 'turma205-admin') {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
 
     try {
-        const db = await initDB();
-        const comment = await db.get('SELECT is_pinned FROM comentarios WHERE id = ?', [id]);
-        const newPinned = comment.is_pinned ? 0 : 1;
-        await db.run('UPDATE comentarios SET is_pinned = ? WHERE id = ?', [newPinned, id]);
-        await db.close();
+        const { data: comment, error: fetchError } = await supabase
+            .from('comentarios')
+            .select('is_pinned')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !comment) {
+            return res.status(404).json({ error: 'Comentário não encontrado' });
+        }
+
+        const newPinned = !comment.is_pinned;
+
+        await supabase
+            .from('comentarios')
+            .update({ is_pinned: newPinned })
+            .eq('id', id);
+
         res.json({ is_pinned: newPinned });
-    } catch (e) { res.status(500).json({ error: 'Erro ao fixar' }); }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Erro ao fixar' });
+    }
 });
 
 // UPDATE comment (admin)
@@ -208,19 +289,25 @@ app.put('/api/comentarios/:id', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        const existing = await db.get('SELECT * FROM comentarios WHERE id = ?', [id]);
-        if (!existing) {
-            await db.close();
+        const { data: existing, error: fetchError } = await supabase
+            .from('comentarios')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !existing) {
             return res.status(404).json({ error: 'Comentário não encontrado.' });
         }
 
-        await db.run(
-            'UPDATE comentarios SET autor = ?, texto = ?, criado = CURRENT_TIMESTAMP WHERE id = ?',
-            [autor, texto, id]
-        );
-        const updated = await db.get('SELECT * FROM comentarios WHERE id = ?', [id]);
-        await db.close();
+        const { data: updated, error } = await supabase
+            .from('comentarios')
+            .update({ autor, texto, criado: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
         res.json({ message: 'Comentário atualizado', comentario: updated });
     } catch (error) {
         console.error(error);
@@ -231,17 +318,20 @@ app.put('/api/comentarios/:id', async (req, res) => {
 // DELETE own comment (user)
 app.delete('/api/comentarios/meus/:id', async (req, res) => {
     const { id } = req.params;
-    const { autor } = req.body; // User must send their name for verification
+    const { autor } = req.body;
 
     if (!autor) {
         return res.status(400).json({ error: 'Autor é obrigatório para verificação.' });
     }
 
     try {
-        const db = await initDB();
-        const comentario = await db.get('SELECT autor FROM comentarios WHERE id = ?', [id]);
+        const { data: comentario, error: fetchError } = await supabase
+            .from('comentarios')
+            .select('autor')
+            .eq('id', id)
+            .single();
 
-        if (!comentario) {
+        if (fetchError || !comentario) {
             return res.status(404).json({ error: 'Comentário não encontrado.' });
         }
 
@@ -249,8 +339,13 @@ app.delete('/api/comentarios/meus/:id', async (req, res) => {
             return res.status(403).json({ error: 'Acesso negado. Você só pode excluir seus próprios comentários.' });
         }
 
-        await db.run('DELETE FROM comentarios WHERE id = ?', [id]);
-        await db.close();
+        const { error } = await supabase
+            .from('comentarios')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
         res.json({ message: 'Comentário excluído com sucesso.' });
     } catch (error) {
         console.error(error);
@@ -268,9 +363,13 @@ app.delete('/api/comentarios/:id', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        await db.run('DELETE FROM comentarios WHERE id = ?', [id]);
-        await db.close();
+        const { error } = await supabase
+            .from('comentarios')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
         res.json({ message: 'Comentário excluído' });
     } catch (error) {
         console.error(error);
@@ -287,21 +386,28 @@ app.put('/api/usuarios/renomear', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        
         // Verifica se novo nome já existe
-        const existing = await db.get('SELECT id FROM usuarios WHERE nome = ?', [novoNome]);
-        if (existing) {
-            await db.close();
+        const { data: existing } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('nome', novoNome);
+
+        if (existing && existing.length > 0) {
             return res.status(409).json({ error: 'Este nome já está em uso.' });
         }
 
         // Atualiza nome do usuário
-        await db.run('UPDATE usuarios SET nome = ? WHERE id = ?', [novoNome, id]);
-        // Atualiza autoria dos comentários para manter a posse
-        await db.run('UPDATE comentarios SET autor = ? WHERE autor = ?', [novoNome, nomeAtual]);
+        await supabase
+            .from('usuarios')
+            .update({ nome: novoNome })
+            .eq('id', id);
 
-        await db.close();
+        // Atualiza autoria dos comentários para manter a posse
+        await supabase
+            .from('comentarios')
+            .update({ autor: novoNome })
+            .eq('autor', nomeAtual);
+
         res.json({ message: 'Nome atualizado com sucesso.' });
     } catch (error) {
         console.error(error);
@@ -312,10 +418,14 @@ app.put('/api/usuarios/renomear', async (req, res) => {
 // GET users (admin)
 app.get('/api/usuarios', async (req, res) => {
     try {
-        const db = await initDB();
-        const usuarios = await db.all('SELECT id, nome, created FROM usuarios ORDER BY created DESC');
-        await db.close();
-        res.json(usuarios);
+        const { data: usuarios, error } = await supabase
+            .from('usuarios')
+            .select('id, nome, created')
+            .order('created', { ascending: false });
+
+        if (error) throw error;
+
+        res.json(usuarios || []);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao listar usuários' });
@@ -335,47 +445,50 @@ app.delete('/api/usuarios', async (req, res) => {
     }
 
     try {
-        const db = await initDB();
-        // Usar transação para garantir que ambas as operações funcionem
-        await db.exec('BEGIN TRANSACTION');
-        // 1. Excluir comentários do usuário
-        await db.run('DELETE FROM comentarios WHERE autor = ?', [nome]);
-        // 2. Excluir o próprio usuário
-        await db.run('DELETE FROM usuarios WHERE id = ? AND nome = ?', [id, nome]);
-        await db.exec('COMMIT');
-        await db.close();
+        // Excluir comentários do usuário
+        await supabase
+            .from('comentarios')
+            .delete()
+            .eq('autor', nome);
+
+        // Excluir o usuário
+        await supabase
+            .from('usuarios')
+            .delete()
+            .eq('id', id)
+            .eq('nome', nome);
 
         res.json({ message: 'Sua conta e todos os seus comentários foram excluídos com sucesso.' });
     } catch (error) {
         console.error(error);
-        try {
-            await db.exec('ROLLBACK');
-        } catch (rbError) { /* ignore */ }
         res.status(500).json({ error: 'Erro ao excluir a conta.' });
-    }
-});
-
-// GET users (admin)
-app.get('/api/usuarios', async (req, res) => {
-    try {
-        const db = await initDB();
-        const usuarios = await db.all('SELECT id, nome, created FROM usuarios ORDER BY created DESC');
-        await db.close();
-        res.json(usuarios);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao listar usuários' });
     }
 });
 
 app.listen(PORT, async () => {
     console.log(`Servidor rodando em http://localhost:${PORT}`);
+    console.log(`Conectado ao Supabase: ${process.env.SUPABASE_URL}`);
     
     // Garante admin ID 1
     try {
-        const adminSetup = await import('./setup_admin.js');
-        await adminSetup.default();
+        const { data, error } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('nome', 'administrador_turma205-1')
+            .limit(1)
+            .single();
+
+        if (error && error.code === 'PGRST116') {
+            // Admin não existe, criar
+            await supabase
+                .from('usuarios')
+                .insert([{
+                    nome: 'administrador_turma205-1',
+                    senha: 'admin123', // Alterar em produção!
+                }]);
+            console.log('✅ Usuário administrador criado');
+        }
     } catch (e) {
-        console.log('Admin setup OK');
+        console.log('Admin already exists or setup complete');
     }
 });
