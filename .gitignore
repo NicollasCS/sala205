@@ -98,6 +98,18 @@ dist
 # Sveltekit cache directory
 .svelte-kit/
 
+# SQLite databases (local, não usado mais)
+database/
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+
 # vitepress build output
 **/.vitepress/dist
 
