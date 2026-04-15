@@ -1,11 +1,28 @@
 # 🎥 Configuração do Supabase Storage para Upload de Vídeos
 
+## ⚠️ IMPORTANTE: Ignorar as Policies Complexas
+
+Se você viu um erro como:
+```
+ERROR: 42601: syntax error at or near "CREATE"
+Failed to run sql query
+```
+
+**Ignore o resto do guia sobre policies!** 
+
+A solução é **MUITO mais simples**:
+1. Criar o bucket
+2. Marcar como "Public bucket"
+3. Pronto! 🎉
+
+O servidor (Node.js) já cuida de toda a validação de acesso.
+
 ## ✅ O que mudou?
 
 Antes: Vídeos salvos **localmente** no servidor (não funciona em Vercel)  
 Agora: Vídeos salvos no **Supabase Storage** (funciona em Vercel, mais seguro)
 
-## 🚀 Passos para Configurar
+## 🚀 Passos para Configurar (Simples!)
 
 ### 1️⃣ Criar um Bucket no Supabase
 
@@ -13,36 +30,10 @@ Agora: Vídeos salvos no **Supabase Storage** (funciona em Vercel, mais seguro)
 2. Vá para **Storage** (menu esquerdo)
 3. Clique em **Create new bucket**
 4. Nome do bucket: **`galeria-videos`** (IMPORTANTE - deve ser exato)
-5. Marque **Public bucket** (para que os vídeos sejam acessíveis)
+5. **Marque "Public bucket"** ✅ (essencial!)
 6. Clique em **Create bucket**
 
-### 2️⃣ Configurar Permissões (Policies)
-
-1. No bucket **galeria-videos**, clique em **Policies** (ou engrenagem)
-2. Crie uma policy para **SELECT** (leitura):
-   - Clique em **New policy**
-   - Template: **Allow public read access**
-   - Clique em **Review** e depois **Save policy**
-
-3. Crie uma policy para **INSERT** e **DELETE** (escrita/deleção) - apenas para admin:
-   ```sql
-   -- Para INSERT
-   CREATE POLICY "Allow admin uploads" ON storage.objects FOR INSERT 
-   WITH CHECK (
-     bucket_id = 'galeria-videos' 
-     AND auth.jwt() ->> 'email' LIKE '%@admin.com'
-   );
-   
-   -- Para DELETE
-   CREATE POLICY "Allow admin delete" ON storage.objects FOR DELETE
-   USING (
-     bucket_id = 'galeria-videos'
-     AND auth.jwt() ->> 'email' LIKE '%@admin.com'
-   );
-   ```
-
-**Alternativa simples** (para testes):
-- Policy: **Allow public access** para tudo (menos seguro, mas funciona)
+Pronto! Não precisa fazer mais nada de policies.
 
 ### 3️⃣ Testar a Configuração
 
@@ -85,6 +76,14 @@ Se não tiver, vá em: Supabase Dashboard → Project Settings → API
 - **Plano Gratuito**: 1 GB (deve ser suficiente)
 - Se precisar mais, upgrade no Supabase dashboard
 
+## 🔐 Como Funciona a Segurança?
+
+O servidor valida o acesso usando o header `x-admin-token`:
+- **Só pode fazer upload/delete quem tem token válido**
+- Token enviado automaticamente pelo admin.js
+- Servidor verifica: `x-admin-token === 'turma205-admin'` ou `'turma205-dev'`
+- Sem token válido: erro `401 Acesso negado`
+
 ## ✨ Benefícios
 
 ✅ Funciona em Vercel (ou qualquer hosting serverless)  
@@ -92,21 +91,29 @@ Se não tiver, vá em: Supabase Dashboard → Project Settings → API
 ✅ URLs públicas automáticas  
 ✅ Escalável sem limite de espaço no servidor  
 ✅ CDN automático (vídeos carregam mais rápido)  
+✅ Validação de segurança no backend  
 
 ## 🐛 Solução de Problemas
 
 **Erro: "bucket_id does not exist"**
 - Certifique-se que o bucket se chama exatamente **`galeria-videos`**
+- Você criou o bucket? Vá em Storage → Create new bucket
 
-**Erro: "Forbidden"**
-- Verifique as policies do bucket
-- Certifique-se que o bucket está marcado como **Public**
+**Erro: "Forbidden" ou erro ao fazer upload**
+- Verifique que o bucket está marcado como **Public**
+- Vá em: Storage → galeria-videos → Bucket settings → Public bucket ✓
 
-**Vídeo suma após fazer upload**
-- Pode ser problema de policy
-- Tente remover policies e usar "Allow public access"
+**Erro ao deletar vídeo**
+- Alguns buckets podem ter restrições
+- Tente marcar: Storage → galeria-videos → Settings → Public: ON
+
+**Vídeo não aparece na galeria após upload**
+- O vídeo foi enviado? Verifique os logs do servidor
+- Vá em: Supabase Dashboard → Storage → galeria-videos
+- O arquivo deve estar lá com nome tipo: `video_1234567890_abc123`
 
 **Upload muito lento**
 - Normal para vídeos grandes
 - Considere comprimir vídeos antes de fazer upload
+- Limite é 800MB por arquivo (@todo: aumentar se necessário)
 
