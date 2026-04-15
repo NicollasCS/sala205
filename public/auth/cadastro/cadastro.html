@@ -7,10 +7,109 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../../index.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="cadastro.js" defer></script>
+    <link rel="shortcut icon" href="../../image/icon.png" type="image/x-icon">
+    <style>
+        .modal-docs {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            padding: 2rem;
+        }
+        .modal-docs.active {
+            display: flex;
+        }
+        .modal-content-docs {
+            background: rgba(30,30,40,0.95);
+            border-radius: 20px;
+            padding: 2.5rem;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f1f5f9;
+            line-height: 1.8;
+        }
+        .modal-content-docs h2 {
+            color: #60a5fa;
+            margin-bottom: 1.5rem;
+            font-size: 1.6rem;
+        }
+        .modal-content-docs p {
+            margin-bottom: 1rem;
+            color: #cbd5e1;
+        }
+        .modal-content-docs strong {
+            color: #f1f5f9;
+        }
+        .modal-content-docs ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .modal-content-docs li {
+            margin-bottom: 0.8rem;
+            color: #cbd5e1;
+        }
+        .close-modal {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .close-modal:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            cursor: pointer;
+            margin-top: 2px;
+            accent-color: #10b981;
+        }
+        .checkbox-group label {
+            cursor: pointer;
+            color: rgba(255,255,255,0.85);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .checkbox-group a {
+            color: #60a5fa;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .checkbox-group a:hover {
+            color: #93c5fd;
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body style="background: linear-gradient(145deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;">
-    <div class="glass-card" style="max-width: 450px; width: 100%; padding: 3rem; backdrop-filter: blur(20px); background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
+    <div class="glass-card" style="max-width: 500px; width: 100%; padding: 3rem; backdrop-filter: blur(20px); background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
         <div style="text-align: center; margin-bottom: 2.5rem;">
             <i class="fas fa-user-plus" style="font-size: 3rem; color: #10b981; margin-bottom: 1rem;"></i>
             <h1 style="font-size: 2rem; font-weight: 700; color: white; margin-bottom: 0.5rem;">Criar Conta</h1>
@@ -23,14 +122,120 @@
             <div style="margin-bottom: 2rem;">
                 <input type="password" id="senha" placeholder="Senha" required style="width: 100%; padding: 1.2rem; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; color: white; font-size: 1rem; transition: all 0.3s; backdrop-filter: blur(10px);">
             </div>
-            <button type="submit" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 1.2rem; border-radius: 16px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 10px 30px rgba(16,185,129,0.4);">
+
+            <!-- Checkboxes de Termos e Política -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="aceitarTermos" required>
+                <label for="aceitarTermos">
+                    Aceito os <a onclick="abrirTermos(event)">Termos de Uso</a>
+                </label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="aceitarPolitica" required>
+                <label for="aceitarPolitica">
+                    Aceito a <a onclick="abrirPolitica(event)">Política de Privacidade</a>
+                </label>
+            </div>
+
+            <button type="submit" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 1.2rem; border-radius: 16px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 10px 30px rgba(16,185,129,0.4); margin-top: 1rem;">
                 <i class="fas fa-check"></i> Cadastrar
             </button>
         </form>
         <p style="text-align: center; margin-top: 1.5rem; color: rgba(255,255,255,0.7);">
             Já tem conta? <a href="../login/login.html" style="color: #3b82f6; font-weight: 500;">Faça login</a>
         </p>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <a href="../../index.html" style="flex: 1; text-align: center; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 1rem; border-radius: 12px; text-decoration: none; font-weight: 500; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+
         <p id="cadastroError" style="color: #f87171; text-align: center; margin-top: 1rem; display: none;"></p>
     </div>
+
+    <!-- Modal Termos de Uso -->
+    <div id="modalTermos" class="modal-docs">
+        <div class="modal-content-docs">
+            <h2>Termos de Uso</h2>
+            <p>Ao acessar e utilizar este serviço, você concorda com os termos abaixo:</p>
+            <ol>
+                <li><strong>Uso do serviço:</strong> Você concorda em utilizar a plataforma de forma legal e respeitosa.</li>
+                <li><strong>Conta do usuário:</strong> Você é responsável pelas informações fornecidas.</li>
+                <li><strong>Conteúdo:</strong> Você é responsável por todo conteúdo que publica.</li>
+                <li><strong>Suspensão:</strong> Podemos suspender ou encerrar contas que violem estes termos.</li>
+                <li><strong>Alterações:</strong> Estes termos podem ser atualizados a qualquer momento.</li>
+                <li><strong>Contato:</strong> Em caso de dúvidas, entre em contato: nicollascane@gmail.com</li>
+            </ol>
+            <button class="close-modal" onclick="fecharTermos()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Modal Política de Privacidade -->
+    <div id="modalPolitica" class="modal-docs">
+        <div class="modal-content-docs">
+            <h2>Política de Privacidade</h2>
+            <p>Coletamos algumas informações para melhorar sua experiência:</p>
+            
+            <strong>1. Dados coletados:</strong>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: #cbd5e1;">
+                <li>Nome</li>
+                <li>Email</li>
+                <li>Dados de uso da plataforma</li>
+            </ul>
+            <p><em>Observação: senhas são armazenadas de forma criptografada e não são acessíveis.</em></p>
+
+            <strong>2. Uso das informações:</strong>
+            <p>Utilizamos os dados para:</p>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: #cbd5e1;">
+                <li>Permitir o funcionamento da plataforma</li>
+                <li>Comunicação com o usuário</li>
+                <li>Melhorar a experiência do usuário</li>
+            </ul>
+
+            <strong>3. Compartilhamento:</strong>
+            <p>Não vendemos seus dados. Seus dados podem ser processados por serviços terceiros essenciais para o funcionamento da plataforma (ex: hospedagem e banco de dados).</p>
+
+            <strong>4. Segurança:</strong>
+            <p>Adotamos medidas técnicas e organizacionais para proteger seus dados contra acesso não autorizado.</p>
+
+            <strong>5. Armazenamento:</strong>
+            <p>Seus dados são armazenados pelo tempo necessário para fornecer o serviço ou conforme exigido por lei.</p>
+
+            <strong>6. Direitos do usuário:</strong>
+            <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento. Também é possível excluir sua conta diretamente pela plataforma, quando disponível.</p>
+
+            <strong>7. Contato:</strong>
+            <p>Email: nicollascane@gmail.com</p>
+
+            <button class="close-modal" onclick="fecharPolitica()">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        function abrirTermos(e) {
+            e.preventDefault();
+            document.getElementById('modalTermos').classList.add('active');
+        }
+        function fecharTermos() {
+            document.getElementById('modalTermos').classList.remove('active');
+        }
+        function abrirPolitica(e) {
+            e.preventDefault();
+            document.getElementById('modalPolitica').classList.add('active');
+        }
+        function fecharPolitica() {
+            document.getElementById('modalPolitica').classList.remove('active');
+        }
+        // Fechar modais ao clicar fora
+        document.querySelectorAll('.modal-docs').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

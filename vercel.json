@@ -1,4 +1,27 @@
 {
+  "version": 2,
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "builds": [
+    {
+      "src": "src/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    { "source": "/admin", "destination": "/auth/admin/admin.html" },
+    { "source": "/login", "destination": "/auth/login/login.html" },
+    { "source": "/cadastro", "destination": "/auth/cadastro/cadastro.html" },
+    { "source": "/", "destination": "/index.html" }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/server.js"
+    }
+  ]
 }

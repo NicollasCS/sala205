@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Sala 205</title>
     <link rel="stylesheet" href="admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="sortable.min.js"></script>
     <script src="admin.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -27,6 +29,9 @@
                 <div class="input-group">
                     <i class="fas fa-lock input-icon"></i>
                     <input type="password" id="adminPass" class="input-field" placeholder="Senha" required>
+                    <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('adminPass')" tabindex="-1">
+                        <i class="fas fa-eye"></i>
+                    </button>
                 </div>
                 <button type="submit" class="login-button">
                     <i class="fas fa-sign-in-alt"></i> Acessar Admin
@@ -47,7 +52,10 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <i class="fas fa-shield-alt" style="font-size: 2rem; color: #3b82f6;"></i>
-                <h2>Painel Admin</h2>
+                <div style="flex: 1;">
+                    <h2>Painel Admin</h2>
+                    <div id="userRoleIndicator" class="user-role-indicator" style="margin-top: 0.5rem; font-size: 0.8rem; color: #6b7280; font-weight: 500;"></div>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-btn active" data-tab="comments">
@@ -57,6 +65,26 @@
                 <button class="nav-btn" data-tab="users">
                     <i class="fas fa-users"></i>
                     <span>Contas</span>
+                </button>
+                <button class="nav-btn" data-tab="galeria">
+                    <i class="fas fa-images"></i>
+                    <span>Galeria</span>
+                </button>
+                <button class="nav-btn" data-tab="descricao">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Descrição</span>
+                </button>
+                <button class="nav-btn" data-tab="configuracoes">
+                    <i class="fas fa-cog"></i>
+                    <span>Configurações</span>
+                </button>
+                <button class="nav-btn" data-tab="logs">
+                    <i class="fas fa-history"></i>
+                    <span>Logs</span>
+                </button>
+                <button class="nav-btn" data-tab="atualizacoes">
+                    <i class="fas fa-upload"></i>
+                    <span>Atualizações</span>
                 </button>
             </nav>
             <button id="logoutBtn" class="logout-btn">
@@ -89,13 +117,278 @@
                     <h1><i class="fas fa-users"></i> Gerenciar Contas</h1>
                     <div class="tab-actions">
                         <span id="users-count" class="count-badge">0</span>
+                        <button id="refresh-users" class="refresh-btn" title="Atualizar lista">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                     </div>
                 </div>
                 <div id="users-list" class="list-container">
                     Carregando...
                 </div>
             </div>
+
+            <!-- Tab: Galeria -->
+            <div id="tab-galeria" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-images"></i> Gerenciar Galeria</h1>
+                    <div class="tab-actions">
+                        <button id="add-galeria-btn" class="add-btn">
+                            <i class="fas fa-plus"></i> Nova Mídia (Foto/Vídeo)
+                        </button>
+                    </div>
+                </div>
+                <div id="galeria-list" class="list-container">
+                    Carregando...
+                </div>
+            </div>
+
+            <!-- Tab: Descrição Turma -->
+            <div id="tab-descricao" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-info-circle"></i> Descrição da Turma</h1>
+                    <div class="tab-actions">
+                        <span id="descricao-status" class="count-badge">Carregando...</span>
+                    </div>
+                </div>
+                <div class="form-group" style="max-width: 800px;">
+                    <label>Texto da Descrição</label>
+                    <textarea id="descricaoTexto" rows="8" placeholder="Digite aqui a descrição da turma..."></textarea>
+                    <small style="color: #94a3b8;">Este texto aparece na página principal. Use quebras de linha para parágrafos.</small>
+                </div>
+                <div class="form-actions">
+                    <button id="salvarDescricao" class="btn-save">
+                        <i class="fas fa-save"></i> Salvar Descrição
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab: Configurações -->
+            <div id="tab-configuracoes" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-cog"></i> Configurações</h1>
+                </div>
+                <div class="settings-container">
+                    <div class="settings-section">
+                        <h3><i class="fas fa-moon"></i> Modo de Exibição</h3>
+                        <p style="color: #94a3b8; margin-bottom: 1rem;">Escolha entre modo claro ou escuro</p>
+                        <div class="theme-selector">
+                            <label class="theme-option">
+                                <input type="radio" name="darkmode" value="dark" onchange="mudarModoExibicao('dark')">
+                                <div class="theme-preview dark-mode">
+                                    <i class="fas fa-moon"></i>
+                                </div>
+                                <span>Modo Escuro</span>
+                            </label>
+                            <label class="theme-option">
+                                <input type="radio" name="darkmode" value="light" onchange="mudarModoExibicao('light')">
+                                <div class="theme-preview light-mode">
+                                    <i class="fas fa-sun"></i>
+                                </div>
+                                <span>Modo Claro</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Logs -->
+            <div id="tab-logs" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-history"></i> Histórico de Atividades</h1>
+                    <div class="tab-actions">
+                        <button id="clear-logs" class="refresh-btn" title="Limpar todos os logs">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button id="export-logs" class="refresh-btn" title="Exportar logs">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="logs-filters">
+                    <div class="logs-filter-row-1">
+                        <span>Filtrar por:</span>
+                        <label class="filter-label">
+                            <input type="checkbox" class="filter-checkbox" value="CONTAS" checked> CONTAS
+                        </label>
+                        <label class="filter-label">
+                            <input type="checkbox" class="filter-checkbox" value="COMENTÁRIOS" checked> COMENTÁRIOS
+                        </label>
+                    </div>
+                    <div class="logs-filter-row-2">
+                        <input type="text" id="filterDetalhes" placeholder="Buscar por detalhes..." class="filter-input">
+                        <button id="clearFilters" class="btn-clear-filters" title="Limpar filtros">
+                            <i class="fas fa-times"></i> Limpar
+                        </button>
+                    </div>
+                </div>
+                <div id="logs-list" class="list-container logs-container">
+                    Carregando logs...
+                </div>
+                <div id="logs-pagination" class="logs-pagination" style="display: none;">
+                    <button id="logs-prev" class="pagination-btn" title="Página anterior">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="pagination-info">
+                        <span>Página <span id="logs-current-page">1</span> de <span id="logs-total-pages">1</span></span>
+                    </div>
+                    <button id="logs-next" class="pagination-btn" title="Próxima página">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab: Atualizações -->
+            <div id="tab-atualizacoes" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-upload"></i> Atualizações do Site</h1>
+                    <div class="tab-actions">
+                        <button id="clear-atualizacoes-logs" class="refresh-btn" title="Limpar atualizações">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button id="export-atualizacoes-logs" class="refresh-btn" title="Exportar atualizações">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formulário para criar atualizações -->
+                <div id="atualizacoes-admin-warning" style="display: none;">
+                    <div class="warning-box">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Apenas desenvolvedores podem editar atualizações.</strong> Faça login como desenvolvedor para gerenciar o conteúdo.
+                    </div>
+                </div>
+                <div class="atualizacoes-form-container">
+                    <h3><i class="fas fa-pen"></i> Publicar Nova Atualização</h3>
+                    <form id="atualizacaoForm" class="atualizacao-form">
+                        <div class="form-group">
+                            <label for="atualizacaoTitulo">Título da Atualização *</label>
+                            <input type="text" id="atualizacaoTitulo" placeholder="Ex: Novo sistema implementado" required maxlength="100">
+                            <small>Máximo 100 caracteres</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="atualizacaoTexto">Mensagem *</label>
+                            <textarea id="atualizacaoTexto" placeholder="Descreva a atualização do site..." required maxlength="500" rows="4"></textarea>
+                            <small><span id="charCount">0</span>/500 caracteres</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-save">
+                                <i class="fas fa-check"></i> Publicar Atualização
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Histórico de Atualizações -->
+                <div class="atualizacoes-header">
+                    <h3><i class="fas fa-history"></i> Histórico de Atualizações</h3>
+                </div>
+                <div id="atualizacoes-list" class="list-container logs-container">
+                    Carregando atualizações...
+                </div>
+            </div>
         </main>
     </div>
-</body>
-</html>
+
+    <!-- Modal para editar/criar galeria -->
+    <div id="galeriaModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="galeriaModalTitle">Nova Imagem</h2>
+                <button class="close-btn" onclick="fecharGaleriaModal()">&times;</button>
+            </div>
+            <form id="galeriaForm">
+                <div class="form-group">
+                    <label>Tipo de Mídia *</label>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                            <input type="radio" name="tipoMidia" value="photo" checked onchange="onTipoMidiaChange()"> 
+                            <i class="fas fa-image"></i> Foto
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                            <input type="radio" name="tipoMidia" value="video" onchange="onTipoMidiaChange()">
+                            <i class="fas fa-video"></i> Vídeo
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Título *</label>
+                    <input type="text" id="galeriaTitulo" required placeholder="Título da mídia">
+                </div>
+                <div class="form-group">
+                    <label>Descrição *</label>
+                    <textarea id="galeriaDescricao" required placeholder="Descrição da mídia" rows="3"></textarea>
+                </div>
+
+                <!-- Seção de Upload e Redimensionamento -->
+                <div class="form-group">
+                    <label id="uploadLabel">Foto do Dispositivo</label>
+                    <small style="color: #94a3b8; display: block; margin-bottom: 0.5rem;"><i class="fas fa-info-circle"></i> <span id="uploadHelpText">Tamanho recomendado: min. 400x400px | máx. 5MB | Mín. 100x100px</span></small>
+                    <div class="upload-area">
+                        <input type="file" id="galeriaFoto" accept="image/*" style="display: none;">
+                        <button type="button" id="uploadBtn" class="upload-button">
+                            <i class="fas fa-cloud-upload-alt"></i> <span id="uploadBtnText">Clique para selecionar imagem</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Campo para URL de Vídeo (YouTube, Vimeo, etc) -->
+                <div class="form-group" id="videoUrlGroup" style="display: none;">
+                    <label>URL do Vídeo (YouTube, Vimeo, link direto, etc)</label>
+                    <input type="url" id="videoUrl" placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/...">
+                    <small style="color: #94a3b8; display: block; margin-top: 0.5rem;">Cole o link do vídeo do YouTube, Vimeo ou outro serviço. Deixe em branco para usar upload.</small>
+                </div>
+
+                <!-- Preview e Crop (apenas para fotos) -->
+                <div id="cropContainer" class="crop-container" style="display: none;">
+                    <div class="crop-preview">
+                        <canvas id="cropCanvas"></canvas>
+                    </div>
+                    <div class="crop-controls">
+                        <label>Zoom</label>
+                        <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1" class="zoom-slider">
+                        <div class="crop-button-group">
+                            <button type="button" onclick="rotarImagem(-90)" class="crop-btn" title="Girar 90° (Arraste a imagem para mover)">
+                                <i class="fas fa-redo"></i> Girar
+                            </button>
+                            <button type="button" onclick="resetarPosicao()" class="crop-btn" title="Resetar posição e centralizar">
+                                <i class="fas fa-home"></i> Resetar
+                            </button>
+                            <button type="button" onclick="confirmarCrop()" class="crop-btn btn-confirm">
+                                <i class="fas fa-check"></i> Confirmar
+                            </button>
+                            <button type="button" onclick="cancelarCrop()" class="crop-btn btn-cancel-crop">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Final -->
+                <div id="previewContainer" style="display: none; margin-top: 1rem;">
+                    <label>Preview final:</label>
+                    <img id="previewImagem" class="preview-imagem" alt="Preview">
+                </div>
+
+                <div class="form-group">
+                    <label>URL da Imagem (link online - alternativa ao upload)</label>
+                    <input type="url" id="galeriaUrl" placeholder="https://exemplo.com/imagem.jpg">
+                    <small style="color: #94a3b8; display: block; margin-top: 0.5rem;">Use URL ou envie arquivo acima</small>
+                </div>
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" id="galeriaData">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Salvar
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="fecharGaleriaModal()">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>

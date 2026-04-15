@@ -1,4 +1,4 @@
-// Login JS - Estilo Moderno
+// Login JS - Estilo Moderno com MD5
 document.getElementById("formLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
 
@@ -12,13 +12,16 @@ document.getElementById("formLogin").addEventListener("submit", async function (
   }
 
   try {
+    // Fazer hash da senha com MD5
+    const senhaHash = CryptoJS.MD5(senha).toString();
+    
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
     document.querySelector('button[type="submit"]').disabled = true;
 
     const response = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, senha }),
+      body: JSON.stringify({ nome, senha: senhaHash }),
     });
 
     const data = await response.json();
