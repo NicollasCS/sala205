@@ -8,6 +8,9 @@ const PAGE_SIZE = 5;
 const CROP_SIZE = 420;
 const LOGS_PAGE_SIZE = 10;
 
+// Contas protegidas que não podem ser deletadas
+const PROTECTED_ACCOUNTS = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
+
 const state = {
     galeriaPage: 0,
     logsPage: 0,
@@ -20,6 +23,7 @@ const state = {
         total: 0
     },
     galeriaItems: [],
+    calendarioItems: [],
     editingGaleriaId: null,
     sortable: null,
     crop: {
@@ -140,6 +144,8 @@ function bindEvents() {
     qs('uploadBtn').addEventListener('click', () => qs('galeriaFoto').click());
     qs('galeriaFoto').addEventListener('change', onFileSelected);
     qs('zoomSlider').addEventListener('input', onZoomChange);
+    qs('add-calendario-btn')?.addEventListener('click', () => abrirCalendarioModal());
+    qs('calendarioForm')?.addEventListener('submit', salvarCalendario);
 
     // Event listeners para tipo de mídia
     document.querySelectorAll('input[name="tipoMidia"]').forEach(radio => {
@@ -181,6 +187,9 @@ function bindEvents() {
         e.preventDefault();
         publicarAtualizacao();
     });
+
+    // Event listener para Database
+    qs('database-refresh-btn')?.addEventListener('click', loadDatabase);
 
     // Contador de caracteres
     qs('atualizacaoTexto')?.addEventListener('input', (e) => {
@@ -276,7 +285,9 @@ function updatePermissions() {
     const userRole = localStorage.getItem('userRole');
     const formContainer = qs('atualizacoes-form-container');
     const adminWarning = qs('atualizacoes-admin-warning');
-    
+    const databaseTab = qs('database-tab');
+    const databaseContent = qs('database-content');
+
     // Atualizar indicador de role
     const roleIndicator = qs('userRoleIndicator');
     if (roleIndicator) {
@@ -291,7 +302,7 @@ function updatePermissions() {
             roleIndicator.style.color = '#6b7280';
         }
     }
-    
+
     // Mostrar/esconder formulário de atualizações - apenas dev pode editar
     if (formContainer) {
         formContainer.style.display = userRole === 'dev' ? 'block' : 'none';
@@ -302,8 +313,23 @@ function updatePermissions() {
         adminWarning.style.display = userRole === 'dev' ? 'none' : 'block';
     }
 
+    // Bloquear cursor na seção de banco de dados para administradores normais
+    if (databaseContent) {
+        if (userRole === 'admin') {
+            databaseContent.classList.add('cursor-blocked');
+            databaseContent.style.cursor = 'not-allowed';
+            databaseContent.style.pointerEvents = 'none';
+            databaseContent.style.opacity = '0.6';
+        } else {
+            databaseContent.classList.remove('cursor-blocked');
+            databaseContent.style.cursor = '';
+            databaseContent.style.pointerEvents = '';
+            databaseContent.style.opacity = '';
+        }
+    }
+
     if (userRole === 'admin') {
-        console.log('Modo Admin: sem permissão para editar atualizações');
+        console.log('Modo Admin: sem permissão para editar atualizações e banco de dados');
     }
 }
 
@@ -332,6 +358,8 @@ function changeTab(tab) {
         filterLogs('logs');
     } else if (tab === 'atualizacoes') {
         filterLogs('atualizacoes');
+    } else if (tab === 'database') {
+        loadDatabase();
     }
 }
 
@@ -341,7 +369,8 @@ async function apiFetch(url, options = {}) {
     };
 
     if (options.admin !== false) {
-        headers['x-admin-token'] = ADMIN_TOKEN;
+        const userRole = localStorage.getItem('userRole');
+        headers['x-admin-token'] = userRole === 'dev' ? DEV_TOKEN : ADMIN_TOKEN;
     }
 
     return fetch(url, {
@@ -475,9 +504,9 @@ async function loadUsers() {
                     <strong class="item-title">${u.nome}</strong>
                     <small class="item-subtitle">ID: ${u.id} | Criado: ${u.created ? new Date(u.created).toLocaleString() : 'Data desconhecida'}</small>
                 </div>
-                ${u.nome === ADMIN_USER
+                ${PROTECTED_ACCOUNTS.includes(u.nome)
                     ? '<span class="protegido-badge"><i class="fas fa-shield-alt"></i> Protegido</span>'
-                    : `<button class="delete-btn" onclick="deleteUser(${u.id}, '${u.nome.replace(/'/g, "\\'")}')"><i class="fas fa-user-times"></i> Apagar Conta</button>`}
+                    : `<button class="delete-btn" onclick="deleteUser('${u.id}', '${u.nome.replace(/'/g, "\\'")}')"><i class="fas fa-user-times"></i> Apagar Conta</button>`}
             </div>
         `).join('');
     } catch (e) {
@@ -489,11 +518,17 @@ async function loadUsers() {
 window.deleteUser = async (id, nome) => {
     if (!confirm(`Apagar ${nome} e seus comentários? Esta ação não pode ser desfeita.`)) return;
 
-    await apiFetch('/api/usuarios', {
+    const res = await apiFetch('/api/usuarios', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, nome })
     });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`Erro ao apagar usuário: ${data.error || res.statusText}`);
+        return;
+    }
 
     loadUsers();
 };
@@ -536,10 +571,10 @@ async function loadGaleria(page = 0) {
                             <p class="item-text">${img.descricao}</p>
                         </div>
                         <div class="admin-actions">
-                            <button class="edit-btn" onclick="abrirGaleriaModal(${img.id})">
+                            <button class="edit-btn" onclick="abrirGaleriaModal('${img.id}')">
                                 <i class="fas fa-edit"></i> Editar
                             </button>
-                            <button class="delete-btn" onclick="deletarGaleria(${img.id})">
+                            <button class="delete-btn" onclick="deletarGaleria('${img.id}')">
                                 <i class="fas fa-trash"></i> Apagar
                             </button>
                         </div>
@@ -587,7 +622,12 @@ function renderGaleriaPagination() {
 
 function initSortable() {
     const list = qs('galeriaSortableList');
-    if (!list || typeof Sortable === 'undefined') return;
+    if (!list) return;
+
+    if (typeof Sortable === 'undefined') {
+        console.warn('SortableJS não está disponível. A ordenação da galeria não funcionará.');
+        return;
+    }
 
     if (state.sortable) {
         state.sortable.destroy();
@@ -596,7 +636,11 @@ function initSortable() {
     state.sortable = Sortable.create(list, {
         animation: 180,
         handle: '.drag-handle',
+        draggable: '.galeria-admin-item',
         ghostClass: 'sortable-ghost',
+        fallbackTolerance: 3,
+        dragClass: 'sortable-drag',
+        forceFallback: false,
         onEnd: async () => {
             const orderedIds = Array.from(list.querySelectorAll('.galeria-admin-item')).map((item) => Number(item.dataset.id));
             await apiFetch('/api/galeria/reorder', {
@@ -658,9 +702,182 @@ window.fecharGaleriaModal = () => {
 window.deletarGaleria = async (id) => {
     if (!confirm('Apagar esta imagem da galeria?')) return;
 
-    await apiFetch(`/api/galeria/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/galeria/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`Erro ao apagar: ${data.error || res.statusText}`);
+        return;
+    }
+
     const nextPage = state.galeriaItems.length === 1 && state.galeriaPage > 0 ? state.galeriaPage - 1 : state.galeriaPage;
     await loadGaleria(nextPage);
+};
+
+async function loadCalendario() {
+    try {
+        const res = await apiFetch('/api/calendario', { admin: false });
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+
+        const response = await res.json();
+        const eventos = response.data || [];
+        const container = qs('calendario-list');
+        state.calendarioItems = eventos;
+
+        const semana = getCurrentWeekDates();
+        const eventosPorDia = eventos.reduce((acc, evento) => {
+            const data = evento.data ? new Date(evento.data) : null;
+            if (!data || isNaN(data.getTime())) return acc;
+            const key = data.toISOString().slice(0, 10);
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(evento);
+            return acc;
+        }, {});
+
+        container.innerHTML = `
+            <div class="calendar-week-grid">
+                ${semana.map((dia) => {
+                    const eventosDia = eventosPorDia[dia.iso] || [];
+                    return `
+                        <div class="weekday-card">
+                            <div class="weekday-card-header">
+                                <strong>${dia.label}</strong>
+                                <span>${dia.formatted}</span>
+                            </div>
+                            <div class="weekday-card-body">
+                                ${eventosDia.length > 0 ? eventosDia.map((evento) => `
+                                    <div class="weekday-event-item">
+                                        <div>
+                                            <div class="event-title">${evento.titulo || 'Sem título'}</div>
+                                            <div class="event-type">${evento.tipo || 'Aviso'}</div>
+                                        </div>
+                                        <div class="weekday-event-actions">
+                                            <button class="edit-btn" onclick="abrirCalendarioModal('${evento.id}')"><i class="fas fa-edit"></i></button>
+                                            <button class="delete-btn" onclick="deletarCalendario('${evento.id}')"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                        <p class="event-description">${evento.descricao || ''}</p>
+                                    </div>
+                                `).join('') : `<div class="empty-day">Nenhum evento.</div>`}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        if (!eventos.length) {
+            container.innerHTML = `
+                <div class="calendar-week-grid">
+                    ${semana.map((dia) => `
+                        <div class="weekday-card">
+                            <div class="weekday-card-header">
+                                <strong>${dia.label}</strong>
+                                <span>${dia.formatted}</span>
+                            </div>
+                            <div class="weekday-card-body">
+                                <div class="empty-day">Nenhum evento.</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error('Erro ao carregar calendário:', e);
+        qs('calendario-list').innerHTML = `<p class="error-text">Erro ao carregar calendário: ${e.message}</p>`;
+    }
+}
+
+function getCurrentWeekDates() {
+    const hoje = new Date();
+    const diaSemana = hoje.getDay();
+    const mondayOffset = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const monday = new Date(hoje);
+    monday.setDate(hoje.getDate() + mondayOffset);
+
+    const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+    return labels.map((label, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+        return {
+            label,
+            date,
+            iso: date.toISOString().slice(0, 10),
+            formatted: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        };
+    });
+}
+
+window.abrirCalendarioModal = (id = null) => {
+    state.editingCalendarioId = id;
+    qs('calendarioModal').style.display = 'block';
+    qs('calendarioForm').reset();
+
+    const hoje = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    qs('calendarioData').value = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
+    qs('calendarioTipo').value = 'Aviso';
+
+    if (!id) return;
+
+    const item = state.calendarioItems.find((evento) => String(evento.id) === String(id));
+    if (!item) return;
+
+    qs('calendarioTitulo').value = item.titulo || '';
+    qs('calendarioDescricao').value = item.descricao || '';
+    qs('calendarioData').value = item.data ? String(item.data).slice(0, 10) : qs('calendarioData').value;
+    qs('calendarioTipo').value = item.tipo || 'Aviso';
+};
+
+window.fecharCalendarioModal = () => {
+    qs('calendarioModal').style.display = 'none';
+    state.editingCalendarioId = null;
+    qs('calendarioForm').reset();
+};
+
+async function salvarCalendario(e) {
+    e.preventDefault();
+
+    const titulo = qs('calendarioTitulo').value.trim();
+    const descricao = qs('calendarioDescricao').value.trim();
+    const data = qs('calendarioData').value;
+    const tipo = qs('calendarioTipo').value;
+
+    if (!titulo || !data) {
+        alert('Título e data são obrigatórios.');
+        return;
+    }
+
+    const endpoint = state.editingCalendarioId ? `/api/calendario/${state.editingCalendarioId}` : '/api/calendario';
+    const method = state.editingCalendarioId ? 'PUT' : 'POST';
+
+    const res = await apiFetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, descricao, data, tipo })
+    });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`Erro ao salvar evento: ${data.error || res.statusText}`);
+        return;
+    }
+
+    fecharCalendarioModal();
+    await loadCalendario();
+    alert(state.editingCalendarioId ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!');
+}
+
+window.deletarCalendario = async (id) => {
+    if (!confirm('Apagar este evento do calendário?')) return;
+
+    const res = await apiFetch(`/api/calendario/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`Erro ao apagar evento: ${data.error || res.statusText}`);
+        return;
+    }
+
+    await loadCalendario();
 };
 
 async function salvarGaleria(e) {
@@ -1020,6 +1237,7 @@ async function loadContent() {
         loadUsers(),
         loadGaleria(state.galeriaPage),
         loadDescricao(),
+        loadCalendario(),
         loadLogs()
     ]);
 }
@@ -1508,6 +1726,163 @@ window.deleteLog = async function(logId) {
     } catch (e) {
         console.error('Erro ao deletar log:', e);
         return false;
+    }
+};
+
+// ===== FUNÇÕES DE BANCO DE DADOS =====
+
+async function loadDatabase() {
+    try {
+        const container = qs('database-content');
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #3b82f6;"></i><p>Carregando tabelas...</p></div>';
+
+        // Buscar lista de tabelas
+        const tablesRes = await apiFetch('/api/database/tables');
+        if (!tablesRes.ok) throw new Error('Erro ao buscar tabelas');
+        
+        const { tables } = await tablesRes.json();
+        const isDev = localStorage.getItem('userRole') === 'dev';
+
+        // Buscar dados de cada tabela
+        const tablesData = [];
+        for (const table of tables) {
+            try {
+                const res = await apiFetch(`/api/database/table/${table}?limit=10&offset=0`);
+                if (res.ok) {
+                    const data = await res.json();
+                    tablesData.push(data);
+                }
+            } catch (e) {
+                console.warn(`Erro ao buscar dados de ${table}:`, e);
+            }
+        }
+
+        // Renderizar tabelas
+        if (tablesData.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #94a3b8;"><i class="fas fa-database"></i><p>Nenhuma tabela encontrada</p></div>';
+            return;
+        }
+
+        container.innerHTML = tablesData.map(tableData => `
+            <div class="database-table-card">
+                <div class="database-table-header">
+                    <div>
+                        <h3>${tableData.tableName}</h3>
+                        <span class="table-record-count">${tableData.total} registros</span>
+                    </div>
+                    ${isDev ? `<button class="btn-clear-table" onclick="clearDatabaseTable('${tableData.tableName}')"><i class="fas fa-broom"></i> Limpar tabela</button>` : ''}
+                </div>
+                <div class="database-table-wrap">
+                    <table class="database-table">
+                        <thead>
+                            <tr>
+                                ${tableData.data.length > 0 ? Object.keys(tableData.data[0]).map(key => `
+                                    <th>
+                                        <div class="table-header-cell">
+                                            <span>${key}</span>
+                                            ${isDev && key !== 'id' ? `<button class="column-action-btn" onclick="clearDatabaseColumn('${tableData.tableName}', '${key}')" title="Limpar coluna ${key}"><i class="fas fa-trash-alt"></i></button>` : ''}
+                                        </div>
+                                    </th>
+                                `).join('') : '<th>Sem dados</th>'}
+                                ${isDev ? '<th>Ações</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableData.data.length > 0 ? tableData.data.map((row, idx) => `
+                                <tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">
+                                    ${Object.keys(row).map((key, colIdx) => {
+                                        const val = row[key];
+                                        const isPasswordField = key.toLowerCase().includes('senha') || key.toLowerCase().includes('password');
+                                        const displayVal = typeof val === 'object' ? JSON.stringify(val).substring(0, 50) : String(val);
+                                        if (isPasswordField && val) {
+                                            const inputId = `password-${tableData.tableName}-${idx}-${colIdx}`;
+                                            return `
+                                                <td class="password-cell">
+                                                    <div class="password-cell-inner">
+                                                        <input type="password" id="${inputId}" value="${displayVal}" readonly>
+                                                        <button class="toggle-password-btn" onclick="togglePasswordVisibility('${inputId}')" title="Mostrar/ocultar senha">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            `;
+                                        }
+                                        return `
+                                            <td>${displayVal}</td>
+                                        `;
+                                    }).join('')}
+                                    ${isDev ? `<td class="table-actions-cell"><button class="btn-delete-row" onclick="deleteDatabaseRow('${tableData.tableName}', '${row.id ?? ''}')"><i class="fas fa-trash-alt"></i> Excluir</button></td>` : ''}
+                                </tr>
+                            `).join('') : '<tr><td colspan="100%" class="empty-table-text">Tabela vazia</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+                ${tableData.total > 10 ? `
+                    <div class="table-footer">
+                        Mostrando 10 de ${tableData.total} registros
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error('Erro ao carregar database:', e);
+        qs('database-content').innerHTML = `<div style="padding: 2rem; background: rgba(239,68,68,0.1); border-radius: 12px; color: #fca5a5;"><i class="fas fa-exclamation-triangle"></i> Erro ao carregar: ${e.message}</div>`;
+    }
+}
+
+window.deleteDatabaseRow = async (tableName, rowId) => {
+    if (!rowId) {
+        alert('Não foi possível excluir: registro sem ID.');
+        return;
+    }
+    if (!confirm(`Tem certeza que deseja excluir o registro ${rowId} da tabela ${tableName}?`)) return;
+
+    try {
+        const res = await apiFetch(`/api/database/table/${tableName}/row/${rowId}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || `Erro ${res.status}`);
+        }
+        alert('Registro excluído com sucesso.');
+        loadDatabase();
+    } catch (e) {
+        console.error('Erro ao excluir registro:', e);
+        alert(`Erro ao excluir registro: ${e.message}`);
+    }
+};
+
+window.clearDatabaseColumn = async (tableName, columnName) => {
+    if (!confirm(`Tem certeza que deseja limpar todos os valores da coluna ${columnName} na tabela ${tableName}? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+        const res = await apiFetch(`/api/database/table/${tableName}/column/${columnName}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || `Erro ${res.status}`);
+        }
+        alert(`Coluna ${columnName} limpa com sucesso.`);
+        loadDatabase();
+    } catch (e) {
+        console.error('Erro ao limpar coluna:', e);
+        alert(`Erro ao limpar coluna: ${e.message}`);
+    }
+};
+
+window.clearDatabaseTable = async (tableName) => {
+    if (!confirm(`Tem certeza que deseja limpar todos os registros da tabela ${tableName}? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+        const res = await apiFetch(`/api/database/table/${tableName}/clear`, { method: 'DELETE' });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || `Erro ${res.status}`);
+        }
+        alert(`Tabela ${tableName} limpa com sucesso.`);
+        loadDatabase();
+    } catch (e) {
+        console.error('Erro ao limpar tabela:', e);
+        alert(`Erro ao limpar tabela: ${e.message}`);
     }
 };
 

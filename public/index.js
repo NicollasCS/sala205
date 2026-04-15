@@ -59,12 +59,11 @@ window.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  document.body.style.overflowX = 'hidden'; // Remove o scroll lateral da página toda
-
   atualizarStatusLogin();
   carregarComentarios();
   carregarGaleria();
   carregarDescricaoTurma();
+  // carregarCalendario(); // Calendário removido da página inicial
   initCharCounter();
   initSidebar();
 });
@@ -158,16 +157,29 @@ function atualizarStatusLogin() {
       `;
       
       let menuHTML = '';
-      if (!isAdmin) {
+      const isProtectedAccount = u.nome === 'aluno205-1' || u.nome === 'dev205-1';
+      
+      if (!isAdmin && !isProtectedAccount) {
         menuHTML += `<button onclick="abrirModalMudarNome()" class="config-menu-item" style="width: 100%; padding: 1rem; border: none; background: none; color: white; text-align: left; cursor: pointer; border-bottom: 1px solid rgba(59,130,246,0.2); transition: all 0.2s;">
           <i class="fas fa-user" style="margin-right: 0.5rem;"></i> Mudar Nome
         </button>`;
       }
-      menuHTML += `
+      
+      if (!isProtectedAccount) {
+        menuHTML += `
         <button onclick="abrirModalMudarSenha()" class="config-menu-item" style="width: 100%; padding: 1rem; border: none; background: none; color: white; text-align: left; cursor: pointer; border-bottom: 1px solid rgba(59,130,246,0.2); transition: all 0.2s;">
           <i class="fas fa-lock" style="margin-right: 0.5rem;"></i> Mudar Senha
         </button>
-
+        `;
+      } else {
+        menuHTML += `
+        <div style="width: 100%; padding: 1rem; border-bottom: 1px solid rgba(59,130,246,0.2); color: #fbbf24; font-size: 0.9rem; text-align: center; white-space: nowrap;">
+          <i class="fas fa-shield-alt"></i> Conta Protegida
+        </div>
+        `;
+      }
+      
+      menuHTML += `
         <!-- Seletor de Tema -->
         <div style="padding: 1rem; border-bottom: 1px solid rgba(59,130,246,0.2);">
           <div style="color: white; font-weight: 500; font-size: 0.85rem; margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.3px;">
@@ -225,6 +237,27 @@ function atualizarStatusLogin() {
       `;
       adminBtn.onclick = () => location.href = './auth/admin/admin.html';
       document.body.appendChild(adminBtn);
+    }
+
+    // Button exclusivo para aluno205-1
+    let alunoCalendarioBtn = document.getElementById('alunoCalendarioBtn');
+    if (u.nome === 'aluno205-1') {
+      if (!alunoCalendarioBtn) {
+        alunoCalendarioBtn = document.createElement('button');
+        alunoCalendarioBtn.id = 'alunoCalendarioBtn';
+        alunoCalendarioBtn.innerHTML = '<i class="fas fa-calendar-week"></i> Meu Calendário';
+        alunoCalendarioBtn.style.cssText = `
+          position: fixed; top: 14rem; right: 2rem;
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          color: white; border: none; padding: 1rem 1.8rem; border-radius: 30px;
+          font-weight: 600; cursor: pointer; z-index: 999;
+          box-shadow: 0 10px 30px rgba(34,197,94,0.4); transition: all 0.3s;
+        `;
+        alunoCalendarioBtn.onclick = () => location.href = './auth/aluno205-1/calendario.html';
+        document.body.appendChild(alunoCalendarioBtn);
+      }
+    } else if (alunoCalendarioBtn) {
+      alunoCalendarioBtn.remove();
     }
 
     if (comentarioForm) comentarioForm.style.display = 'block';
@@ -835,9 +868,22 @@ async function carregarGaleria(page = 0) {
               </div>
             </div>`}
           </div>
+          <div class="galeria-comentarios" style="border-top: 1px solid rgba(255,255,255,0.1); padding: 1rem 0 0 0;">
+            <div style="font-size: 0.9rem; font-weight: 600; color: #60a5fa; margin-bottom: 0.75rem;"><i class="fas fa-comments"></i> Comentários</div>
+            <div id="comentarios-galeria-${item.id}" style="max-height: 200px; overflow-y: auto; margin-bottom: 0.75rem;"></div>
+            <form id="form-comentario-galeria-${item.id}" onsubmit="enviarComentarioForm(${item.id}, event)" style="display: flex; gap: 0.5rem;">
+              <input type="text" placeholder="Seu comentário (máx 100 caracteres)" maxlength="100" style="flex: 1; padding: 0.5rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(255,255,255,0.05); color: #e5e7eb; font-size: 0.9rem;">
+              <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </form>
+          </div>
         </div>
       `;
     }).join('');
+
+    // Carregar comentários de cada imagem
+    imagens.forEach(item => {
+      atualizarComentariosGaleria(item.id);
+    });
 
     // Mostrar/esconder botão "Anterior" (voltar página)
     const prevBtn = document.getElementById('galeriaPrevBtn');
@@ -876,6 +922,233 @@ function carregarProximaPaginaGaleria() {
 function carregarPaginaAnteriorGaleria() {
   if (galeriaAtualPage > 0) {
     carregarGaleria(galeriaAtualPage - 1);
+  }
+}
+
+// ===== FUNÇÕES DE COMENTÁRIOS DE GALERIA =====
+
+async function carregarComentariosGaleria(galeriaId) {
+  try {
+    const res = await fetch(`/api/galeria/${galeriaId}/comentarios`);
+    if (!res.ok) throw new Error('Erro ao carregar comentários');
+    return await res.json();
+  } catch (e) {
+    console.error('Erro ao carregar comentários:', e);
+    return [];
+  }
+}
+
+async function enviarComentarioGaleria(galeriaId, texto) {
+  const usuarioRaw = localStorage.getItem('usuarioLogado');
+  const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+  
+  if (!usuario) {
+    alert('Você precisa estar logado para comentar');
+    return null;
+  }
+
+  if (!texto || texto.trim().length === 0) {
+    alert('Comentário não pode estar vazio');
+    return null;
+  }
+
+  if (texto.length > 100) {
+    alert('Comentário deve ter no máximo 100 caracteres');
+    return null;
+  }
+
+  try {
+    const res = await fetch(`/api/galeria/${galeriaId}/comentarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        autor: usuario.nome,
+        texto: texto.trim()
+      })
+    });
+
+    const data = await res.json();
+    
+    if (!res.ok) {
+      alert(data.error || 'Erro ao enviar comentário');
+      return null;
+    }
+
+    return data;
+  } catch (e) {
+    console.error('Erro ao enviar comentário:', e);
+    alert('Erro ao enviar comentário');
+    return null;
+  }
+}
+
+async function deletarComentarioGaleria(comentarioId) {
+  const usuarioRaw = localStorage.getItem('usuarioLogado');
+  const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+  
+  if (!usuario) {
+    alert('Você precisa estar logado');
+    return false;
+  }
+
+  if (!confirm('Tem certeza que deseja deletar este comentário?')) {
+    return false;
+  }
+
+  try {
+    const res = await fetch(`/api/galeria/comentarios/${comentarioId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autor: usuario.nome })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || 'Erro ao deletar comentário');
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error('Erro ao deletar comentário:', e);
+    alert('Erro ao deletar comentário');
+    return false;
+  }
+}
+
+async function atualizarComentariosGaleria(galeriaId) {
+  const container = document.getElementById(`comentarios-galeria-${galeriaId}`);
+  if (!container) return;
+
+  container.innerHTML = '<div style="text-align: center; padding: 1rem; color: #94a3b8;"><i class="fas fa-spinner fa-spin"></i></div>';
+
+  const comentarios = await carregarComentariosGaleria(galeriaId);
+  
+  if (comentarios.length === 0) {
+    container.innerHTML = '<div style="text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.9rem;">Nenhum comentário ainda</div>';
+  } else {
+    container.innerHTML = comentarios.map(c => {
+      const usuarioRaw = localStorage.getItem('usuarioLogado');
+      const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+      const podeDelete = usuario && (usuario.nome === c.autor || usuario.nome === 'administrador_turma205-1');
+      
+      return `
+        <div style="padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; color: #60a5fa; font-size: 0.9rem;">${c.autor}</div>
+            <div style="color: #e5e7eb; margin-top: 0.25rem; word-break: break-word;">${c.texto}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">${new Date(c.criado).toLocaleDateString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          ${podeDelete ? `<button onclick="(async () => { if (await deletarComentarioGaleria(${c.id})) { await atualizarComentariosGaleria(${galeriaId}); } })()" style="background: rgba(239,68,68,0.2); color: #fca5a5; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+async function focarNovaFormulario(galeriaId) {
+  const container = document.getElementById(`form-comentario-galeria-${galeriaId}`);
+  if (!container) return;
+  
+  const input = container.querySelector('input');
+  if (input) input.focus();
+}
+
+async function enviarComentarioForm(galeriaId, event) {
+  if (event) event.preventDefault();
+  
+  const container = document.getElementById(`form-comentario-galeria-${galeriaId}`);
+  if (!container) return;
+  
+  const input = container.querySelector('input');
+  const texto = input.value;
+  
+  const resultado = await enviarComentarioGaleria(galeriaId, texto);
+  if (resultado) {
+    input.value = '';
+    await atualizarComentariosGaleria(galeriaId);
+  }
+}
+
+function carregarProximaPaginaGaleria() {
+  carregarGaleria(galeriaAtualPage + 1);
+}
+
+function carregarPaginaAnteriorGaleria() {
+  if (galeriaAtualPage > 0) {
+    carregarGaleria(galeriaAtualPage - 1);
+  }
+}
+
+async function carregarCalendario() {
+  const container = document.getElementById('calendarioContainer');
+  const secaoCalendario = document.getElementById('secaoCalendario');
+  const usuarioRaw = localStorage.getItem('usuarioLogado');
+  const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+
+  // Esconder seção se usuário não é aluno205-1
+  if (!usuario || usuario.nome !== 'aluno205-1') {
+    if (secaoCalendario) {
+      secaoCalendario.style.display = 'none';
+    }
+    return;
+  }
+
+  // Mostrar seção para aluno205-1
+  if (secaoCalendario) {
+    secaoCalendario.style.display = 'block';
+  }
+
+  try {
+    const res = await fetch('/api/calendario');
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const response = await res.json();
+    const eventos = Array.isArray(response.data) ? response.data : [];
+
+    const hoje = new Date();
+    const umaSemana = new Date(hoje);
+    umaSemana.setDate(hoje.getDate() + 7);
+
+    const eventosSemana = eventos
+      .map((evento) => ({ ...evento, dataObj: new Date(evento.data) }))
+      .filter((evento) => evento.dataObj >= hoje && evento.dataObj <= umaSemana)
+      .sort((a, b) => a.dataObj - b.dataObj);
+
+    if (!eventosSemana.length) {
+      container.innerHTML = `
+        <div class="empty-state calendario-empty">
+          <i class="fas fa-calendar-day"></i>
+          <p>Nenhum compromisso programado para os próximos 7 dias.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="calendario-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Evento</th>
+            <th>Descrição</th>
+            <th>Tipo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eventosSemana.map((evento) => `
+            <tr>
+              <td>${evento.dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+              <td>${evento.titulo || ''}</td>
+              <td>${evento.descricao || ''}</td>
+              <td>${evento.tipo || 'Aviso'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error('Erro ao carregar calendário:', e);
+    container.innerHTML = `<div class="error-text">Erro ao carregar calendário: ${e.message}</div>`;
   }
 }
 

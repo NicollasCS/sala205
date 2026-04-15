@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendário do Aluno 205-1</title>
+  <link rel="stylesheet" href="../../index.css" />
+  <script src="calendario.js" defer></script>
+</head>
+<body>
+  <main class="page-container" style="padding: 2rem; max-width: 1100px; margin: 0 auto;">
+    <header style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem;">
+      <div>
+        <h1 style="font-size: 2.4rem; margin-bottom: 0.4rem;">Calendário Semanal</h1>
+        <p style="color: #cbd5e1; max-width: 720px;">Apenas o aluno <strong>aluno205-1</strong> pode acessar esta página.</p>
+      </div>
+      <a href="../../index.html" style="text-decoration: none; color: white; background: #2563eb; padding: 0.9rem 1.3rem; border-radius: 999px; font-weight: 600;">Voltar</a>
+    </header>
+
+    <section id="acessoNegado" style="display: none; padding: 2rem; background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.35); border-radius: 18px; color: #641220;">
+      <h2>Acesso negado</h2>
+      <p>Este conteúdo é exclusivo para o aluno <strong>aluno205-1</strong>. Faça login com a conta correta para continuar.</p>
+      <button onclick="window.location.href='/auth/login/login.html'" style="background: #dc2626; color: white; border: none; border-radius: 999px; padding: 0.9rem 1.4rem; cursor: pointer;">Ir para login</button>
+    </section>
+
+    <section id="calendarioAluno" style="display: none;">
+      <div id="semanaResumo" style="margin-bottom: 1.5rem; color: #94a3b8; font-size: 0.95rem;"></div>
+      <div id="calendarioWeek" class="calendario-week-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;"></div>
+    </section>
+
+    <section id="carregandoCalendario" style="display: none; padding: 2rem; background: rgba(255,255,255,0.06); border-radius: 18px; color: #e2e8f0; text-align: center;">
+      <p>Carregando agenda...</p>
+    </section>
+  </main>
+</body>
+</html>

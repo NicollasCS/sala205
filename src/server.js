@@ -8,6 +8,7 @@ import multer from 'multer';
 import busboy from 'busboy';
 import fs from 'fs';
 import crypto from 'crypto';
+import Filter from 'bad-words';
 
 dotenv.config();
 
@@ -35,9 +36,22 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ''
 );
 
+// 🛡️ Filtro de Palavrões para Comentários
+const profanityFilter = new Filter();
+
+// Adicionar palavras customizadas em português (palavrões comuns)
+profanityFilter.addWords(
+    'palavrão1', 'palavrão2', 'palavrão3' // você pode adicionar mais conforme necessário
+);
+
 function isAdminToken(req) {
     const token = req.headers['x-admin-token'];
     return token === 'turma205-admin' || token === 'turma205-dev';
+}
+
+function isDevToken(req) {
+    const token = req.headers['x-admin-token'];
+    return token === 'turma205-dev';
 }
 
 function normalizeDescricao(value) {
@@ -113,6 +127,50 @@ async function ensureGaleriaTipoMidia() {
         if (err.code !== '42703') {
             console.warn('Erro ao verificar/atualizar tipo_midia:', err.message);
         }
+    }
+}
+
+async function ensureGaleriaStorageKey() {
+    try {
+        const { data, error } = await supabase
+            .from('galeria')
+            .select('storage_key')
+            .limit(1);
+
+        if (error && error.code === '42703') {
+            console.warn('⚠️  Coluna storage_key não existe em galeria. Uploads de vídeo continuarão, mas sem persistir a chave.');
+            return false;
+        }
+
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        if (err.code === '42703') return false;
+        throw err;
+    }
+}
+
+async function ensureCalendarioTable() {
+    try {
+        const { error } = await supabase
+            .from('calendario')
+            .select('id')
+            .limit(1);
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('calendario')) {
+                console.warn('⚠️  Tabela calendario não existe. Crie no Supabase ou use a interface de gerenciamento.');
+                return false;
+            }
+            throw error;
+        }
+
+        return true;
+    } catch (err) {
+        if (err.code === 'PGRST205' || err.message?.includes('calendario')) {
+            return false;
+        }
+        throw err;
     }
 }
 
@@ -278,6 +336,11 @@ app.post('/api/comentarios', async (req, res) => {
 
     if (texto.length > 120) {
         return res.status(400).json({ error: 'Comentário muito longo. Máximo 120 caracteres.' });
+    }
+
+    // 🛡️ Validar palavrões
+    if (profanityFilter.isProfane(texto)) {
+        return res.status(400).json({ error: 'Comentário contém linguagem inadequada. Por favor, revise.' });
     }
 
     try {
@@ -494,12 +557,137 @@ app.delete('/api/comentarios/:id', async (req, res) => {
     }
 });
 
+// ===== COMENTÁRIOS DE GALERIA =====
+
+// GET comentários de uma imagem/video
+app.get('/api/galeria/:galeriaId/comentarios', async (req, res) => {
+    const { galeriaId } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('comentarios_galeria')
+            .select('*')
+            .eq('galeria_id', galeriaId)
+            .order('criado', { ascending: false });
+
+        if (error) throw error;
+
+        res.json(data || []);
+    } catch (error) {
+        console.error('Erro ao buscar comentários:', error);
+        res.status(500).json({ error: 'Erro ao buscar comentários' });
+    }
+});
+
+// POST para adicionar comentário em galeria (máx 100 chars, 1 por usuário por imagem)
+app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
+    const { galeriaId } = req.params;
+    const { autor, texto } = req.body;
+
+    if (!autor || !texto) {
+        return res.status(400).json({ error: 'Autor e texto são obrigatórios' });
+    }
+
+    if (texto.length > 100) {
+        return res.status(400).json({ error: 'Comentário muito longo. Máximo 100 caracteres.' });
+    }
+
+    if (texto.trim().length === 0) {
+        return res.status(400).json({ error: 'Comentário não pode estar vazio' });
+    }
+
+    // 🛡️ Validar palavrões
+    if (profanityFilter.isProfane(texto)) {
+        return res.status(400).json({ error: 'Comentário contém linguagem inadequada. Por favor, revise.' });
+    }
+
+    try {
+        // Verificar se usuário já comentou nesta imagem
+        const { data: existingComment, error: checkError } = await supabase
+            .from('comentarios_galeria')
+            .select('id')
+            .eq('galeria_id', galeriaId)
+            .eq('autor', autor)
+            .single();
+
+        if (!checkError && existingComment) {
+            return res.status(400).json({ error: 'Você já comentou nesta imagem/video' });
+        }
+
+        // Inserir novo comentário
+        const { data: novoComentario, error } = await supabase
+            .from('comentarios_galeria')
+            .insert([{
+                galeria_id: galeriaId,
+                autor,
+                texto: texto.trim(),
+                criado: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.status(201).json(novoComentario);
+    } catch (error) {
+        console.error('Erro ao criar comentário:', error);
+        res.status(500).json({ error: 'Erro ao criar comentário' });
+    }
+});
+
+// DELETE comentário de galeria (usuário pode deletar seu próprio)
+app.delete('/api/galeria/comentarios/:comentarioId', async (req, res) => {
+    const { comentarioId } = req.params;
+    const { autor } = req.body;
+
+    if (!autor) {
+        return res.status(400).json({ error: 'Autor é obrigatório' });
+    }
+
+    try {
+        // Verificar se comentário pertence ao usuário
+        const { data: comentario, error: checkError } = await supabase
+            .from('comentarios_galeria')
+            .select('*')
+            .eq('id', comentarioId)
+            .single();
+
+        if (checkError || !comentario) {
+            return res.status(404).json({ error: 'Comentário não encontrado' });
+        }
+
+        // Apenas o autor ou admin podem deletar
+        const isAdmin = autor === 'administrador_turma205-1';
+        if (comentario.autor !== autor && !isAdmin) {
+            return res.status(403).json({ error: 'Você não pode deletar este comentário' });
+        }
+
+        const { error } = await supabase
+            .from('comentarios_galeria')
+            .delete()
+            .eq('id', comentarioId);
+
+        if (error) throw error;
+
+        res.json({ message: 'Comentário deletado' });
+    } catch (error) {
+        console.error('Erro ao deletar comentário:', error);
+        res.status(500).json({ error: 'Erro ao deletar comentário' });
+    }
+});
+
 // Rota para renomear usuário
 app.put('/api/usuarios/renomear', async (req, res) => {
     const { id, nomeAtual, novoNome } = req.body;
 
     if (!id || !nomeAtual || !novoNome) {
         return res.status(400).json({ error: 'Dados incompletos.' });
+    }
+
+    // Contas protegidas que não podem ser renomeadas
+    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
+    if (protectedAccounts.includes(nomeAtual)) {
+        return res.status(403).json({ error: 'Contas de sistema não podem ser renomeadas.' });
     }
 
     try {
@@ -554,8 +742,10 @@ app.delete('/api/usuarios', async (req, res) => {
         return res.status(400).json({ error: 'ID e nome do usuário são obrigatórios.' });
     }
 
-    if (nome === 'administrador_turma205-1') {
-        return res.status(403).json({ error: 'Esta conta de administrador não pode ser excluída.' });
+    // Contas protegidas que não podem ser excluídas
+    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
+    if (protectedAccounts.includes(nome)) {
+        return res.status(403).json({ error: 'Esta conta não pode ser excluída. É uma conta de sistema.' });
     }
 
     try {
@@ -653,7 +843,7 @@ app.get('/api/galeria', async (req, res) => {
 
         // Se coluna position não existe, ordena apenas por data
         try {
-            query = query.order('position', { ascending: true, nullsFirst: false });
+            query = query.order('position', { ascending: false, nullsFirst: false });
         } catch {
             query = query.order('data', { ascending: false });
         }
@@ -779,20 +969,34 @@ app.post('/api/galeria/video-upload', async (req, res) => {
 
                 const nextPos = (current?.[0]?.position || 0) + 1;
 
+                const hasStorageKey = await ensureGaleriaStorageKey();
                 const insertData = {
                     titulo,
                     descricao,
                     url: publicUrl,
                     data: data || null,
                     position: nextPos,
-                    tipo_midia: tipo_midia || 'video',
-                    storage_key: videoFilename
+                    tipo_midia: tipo_midia || 'video'
                 };
 
-                const { data: novaImagem, error } = await supabase
+                if (hasStorageKey) {
+                    insertData.storage_key = videoFilename;
+                }
+
+                let { data: novaImagem, error } = await supabase
                     .from('galeria')
                     .insert([insertData])
                     .select();
+
+                if (error && error.code === '42703' && error.message?.includes('storage_key')) {
+                    delete insertData.storage_key;
+                    const retry = await supabase
+                        .from('galeria')
+                        .insert([insertData])
+                        .select();
+                    novaImagem = retry.data;
+                    error = retry.error;
+                }
 
                 if (error) throw error;
                 
@@ -922,11 +1126,12 @@ app.put('/api/galeria/reorder', async (req, res) => {
     }
 
     try {
+        const total = orderedIds.length;
         await Promise.all(
             orderedIds.map((id, index) =>
                 supabase
                     .from('galeria')
-                    .update({ position: index + 1 })
+                    .update({ position: total - index })
                     .eq('id', id)
             )
         );
@@ -952,17 +1157,20 @@ app.delete('/api/galeria/:id', async (req, res) => {
     }
 
     try {
+        const hasStorageKey = await ensureGaleriaStorageKey();
+        const selectCols = hasStorageKey ? 'storage_key, url' : 'url';
+
         // Obter o item da galeria para pegar a storage_key
         const { data: galeriaItem, error: fetchError } = await supabase
             .from('galeria')
-            .select('storage_key, url')
+            .select(selectCols)
             .eq('id', id)
             .single();
 
         if (fetchError) throw fetchError;
 
         // Se tem storage_key, deletar do Supabase Storage
-        if (galeriaItem?.storage_key) {
+        if (hasStorageKey && galeriaItem?.storage_key) {
             const { error: storageError } = await supabase
                 .storage
                 .from('galeria-videos')
@@ -989,6 +1197,131 @@ app.delete('/api/galeria/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao apagar imagem/vídeo' });
+    }
+});
+
+// ===== ROTAS DE CALENDÁRIO =====
+app.get('/api/calendario', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('calendario')
+            .select('*')
+            .order('data', { ascending: true })
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('calendario')) {
+                return res.json({ data: [] });
+            }
+            throw error;
+        }
+
+        res.json({ data: data || [] });
+    } catch (error) {
+        console.error('Erro ao buscar calendário:', error);
+        res.status(500).json({ error: 'Erro ao buscar calendário' });
+    }
+});
+
+app.post('/api/calendario', async (req, res) => {
+    if (!isAdminToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { titulo, descricao, data, tipo } = req.body;
+
+    if (!titulo || !data) {
+        return res.status(400).json({ error: 'Título e data são obrigatórios' });
+    }
+
+    try {
+        const { data: newEvent, error } = await supabase
+            .from('calendario')
+            .insert([{ titulo, descricao: descricao || '', data, tipo: tipo || 'Aviso', created_at: new Date().toISOString() }])
+            .select()
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('calendario')) {
+                return res.status(503).json({
+                    error: 'Tabela calendario não configurada. Execute no Supabase SQL Editor: CREATE TABLE calendario (id serial PRIMARY KEY, titulo text NOT NULL, descricao text, data date NOT NULL, tipo text DEFAULT \'Aviso\', created_at timestamp with time zone DEFAULT now());'
+                });
+            }
+            throw error;
+        }
+
+        await createLog('CALENDÁRIO', 'ADICIONAR EVENTO', `Evento criado: ${titulo} em ${data}`);
+        res.status(201).json({ data: newEvent });
+    } catch (error) {
+        console.error('Erro ao criar evento de calendário:', error);
+        res.status(500).json({ error: 'Erro ao criar evento' });
+    }
+});
+
+app.put('/api/calendario/:id', async (req, res) => {
+    if (!isAdminToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { id } = req.params;
+    const { titulo, descricao, data, tipo } = req.body;
+
+    if (!titulo || !data) {
+        return res.status(400).json({ error: 'Título e data são obrigatórios' });
+    }
+
+    try {
+        const { data: updatedEvent, error } = await supabase
+            .from('calendario')
+            .update({ titulo, descricao: descricao || '', data, tipo: tipo || 'Aviso' })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('calendario')) {
+                return res.status(503).json({
+                    error: 'Tabela calendario não configurada. Execute no Supabase SQL Editor: CREATE TABLE calendario (id serial PRIMARY KEY, titulo text NOT NULL, descricao text, data date NOT NULL, tipo text DEFAULT \'Aviso\', created_at timestamp with time zone DEFAULT now());'
+                });
+            }
+            throw error;
+        }
+
+        await createLog('CALENDÁRIO', 'ATUALIZAR EVENTO', `Evento atualizado: ${titulo} (${id})`);
+        res.json({ data: updatedEvent });
+    } catch (error) {
+        console.error('Erro ao atualizar evento de calendário:', error);
+        res.status(500).json({ error: 'Erro ao atualizar evento' });
+    }
+});
+
+app.delete('/api/calendario/:id', async (req, res) => {
+    if (!isAdminToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { id } = req.params;
+
+    try {
+        const { error } = await supabase
+            .from('calendario')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('calendario')) {
+                return res.status(503).json({
+                    error: 'Tabela calendario não configurada. Execute no Supabase SQL Editor: CREATE TABLE calendario (id serial PRIMARY KEY, titulo text NOT NULL, descricao text, data date NOT NULL, tipo text DEFAULT \'Aviso\', created_at timestamp with time zone DEFAULT now());'
+                });
+            }
+            throw error;
+        }
+
+        await createLog('CALENDÁRIO', 'REMOVER EVENTO', `Evento removido: ${id}`);
+        res.json({ message: 'Evento removido com sucesso' });
+    } catch (error) {
+        console.error('Erro ao deletar evento de calendário:', error);
+        res.status(500).json({ error: 'Erro ao deletar evento' });
     }
 });
 
@@ -1234,6 +1567,157 @@ app.delete('/api/logs', async (req, res) => {
         console.error('Erro ao deletar logs:', error);
         // Retorna sucesso mesmo com erro - logs são secundários
         res.json({ message: 'Logs deletados ou não existem' });
+    }
+});
+
+// ===== ENDPOINTS DE BANCO DE DADOS (APENAS ADMIN) =====
+
+// Listar tabelas do banco
+app.get('/api/database/tables', async (req, res) => {
+    if (!isAdminToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('get_table_names', {});
+        
+        if (error) {
+            // Se RPC não existe, retornar tabelas conhecidas
+            const tabelas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+            return res.json({ tables: tabelas });
+        }
+
+        res.json({ tables: data || [] });
+    } catch (error) {
+        console.error('Erro ao listar tabelas:', error);
+        // Retornar tabelas conhecidas como fallback
+        const tabelas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+        res.json({ tables: tabelas });
+    }
+});
+
+// Buscar conteúdo de uma tabela específica
+app.get('/api/database/table/:tableName', async (req, res) => {
+    if (!isAdminToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { tableName } = req.params;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    // Lista de tabelas permitidas (whitelist para segurança)
+    const tabelasPermitidas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+    
+    if (!tabelasPermitidas.includes(tableName)) {
+        return res.status(400).json({ error: 'Tabela não permitida' });
+    }
+
+    try {
+        const { data, error, count } = await supabase
+            .from(tableName)
+            .select('*', { count: 'exact' })
+            .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+
+        res.json({
+            tableName,
+            data: data || [],
+            total: count || 0,
+            limit,
+            offset,
+            pages: Math.ceil((count || 0) / limit)
+        });
+    } catch (error) {
+        console.error(`Erro ao buscar dados de ${tableName}:`, error);
+        res.status(500).json({ error: `Erro ao buscar dados da tabela ${tableName}` });
+    }
+});
+
+app.delete('/api/database/table/:tableName/row/:id', async (req, res) => {
+    if (!isDevToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { tableName, id } = req.params;
+    const tabelasPermitidas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+    if (!tabelasPermitidas.includes(tableName)) {
+        return res.status(400).json({ error: 'Tabela não permitida' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ error: 'Registro não encontrado' });
+        }
+
+        res.json({ message: 'Registro excluído com sucesso' });
+    } catch (error) {
+        console.error(`Erro ao excluir registro de ${tableName}:`, error);
+        res.status(500).json({ error: 'Erro ao excluir registro' });
+    }
+});
+
+app.delete('/api/database/table/:tableName/column/:columnName', async (req, res) => {
+    if (!isDevToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { tableName, columnName } = req.params;
+    const tabelasPermitidas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+    if (!tabelasPermitidas.includes(tableName)) {
+        return res.status(400).json({ error: 'Tabela não permitida' });
+    }
+
+    if (columnName.toLowerCase() === 'id') {
+        return res.status(403).json({ error: 'Não é permitido limpar a coluna de ID' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from(tableName)
+            .update({ [columnName]: null })
+            .not('id', 'is', null);
+
+        if (error) throw error;
+
+        res.json({ message: `Coluna ${columnName} limpa com sucesso` });
+    } catch (error) {
+        console.error(`Erro ao limpar coluna ${columnName} de ${tableName}:`, error);
+        res.status(500).json({ error: `Erro ao limpar coluna ${columnName}` });
+    }
+});
+
+app.delete('/api/database/table/:tableName/clear', async (req, res) => {
+    if (!isDevToken(req)) {
+        return res.status(401).json({ error: 'Acesso negado' });
+    }
+
+    const { tableName } = req.params;
+    const tabelasPermitidas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+    if (!tabelasPermitidas.includes(tableName)) {
+        return res.status(400).json({ error: 'Tabela não permitida' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from(tableName)
+            .delete()
+            .not('id', 'is', null);
+
+        if (error) throw error;
+
+        res.json({ message: `Tabela ${tableName} limpa com sucesso` });
+    } catch (error) {
+        console.error(`Erro ao limpar tabela ${tableName}:`, error);
+        res.status(500).json({ error: `Erro ao limpar tabela ${tableName}` });
     }
 });
 
