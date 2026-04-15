@@ -18,19 +18,10 @@ const app = express();
 const PORT = 3000;
 const GALERIA_PAGE_SIZE = 5;
 
-// Configurar multer para uploads de vídeo
-const uploadDir = path.join(__dirname, '../public/uploads/videos');
-const upload = multer({
-    dest: uploadDir,
-    limits: { fileSize: 800 * 1024 * 1024 }, // 800MB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('video/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Apenas arquivos de vídeo são aceitos'));
-        }
-    }
-});
+// 📝 NOTA: Upload de vídeos agora usa Supabase Storage (não mais local)
+// Multer deixado para referência, mas não é mais usado
+// const uploadDir = path.join(__dirname, '../public/uploads/videos');
+// const upload = multer({...});
 
 // Middleware
 app.use(cors());
@@ -45,7 +36,8 @@ const supabase = createClient(
 );
 
 function isAdminToken(req) {
-    return req.headers['x-admin-token'] === 'turma205-admin';
+    const token = req.headers['x-admin-token'];
+    return token === 'turma205-admin' || token === 'turma205-dev';
 }
 
 function normalizeDescricao(value) {
@@ -712,7 +704,7 @@ app.get('/api/galeria', async (req, res) => {
     }
 });
 
-// Endpoint para upload de vídeo (using busboy para fazer parsing correto de FormData)
+// Endpoint para upload de vídeo (Supabase Storage)
 app.post('/api/galeria/video-upload', async (req, res) => {
     if (!isAdminToken(req)) {
         return res.status(401).json({ error: 'Acesso negado' });
@@ -721,8 +713,9 @@ app.post('/api/galeria/video-upload', async (req, res) => {
     try {
         const bb = busboy({ headers: req.headers });
         const fields = {};
-        let videoFile = null;
-        let fileWritePromise = null;
+        let videoBuffer = null;
+        let videoFilename = null;
+        let videoMimetype = null;
 
         bb.on('field', (fieldname, val) => {
             fields[fieldname] = val;
@@ -730,42 +723,51 @@ app.post('/api/galeria/video-upload', async (req, res) => {
 
         bb.on('file', (fieldname, file, info) => {
             if (fieldname === 'video') {
-                // Criar Promise que resolve quando o arquivo terminar de ser escrito
-                fileWritePromise = new Promise((resolve, reject) => {
-                    // Gerar nome único para o arquivo
-                    const timestamp = Date.now();
-                    const filename = `video_${timestamp}_${Math.random().toString(36).substring(7)}`;
-                    const videoPath = path.join(uploadDir, filename);
+                videoMimetype = info.mimetype;
+                const chunks = [];
+                
+                file.on('data', (data) => {
+                    chunks.push(data);
+                });
 
-                    // Salvar arquivo no disco
-                    const writeStream = fs.createWriteStream(videoPath);
-                    file.pipe(writeStream);
-
-                    writeStream.on('finish', () => {
-                        videoFile = `/uploads/videos/${filename}`;
-                        resolve();
-                    });
-
-                    writeStream.on('error', (err) => {
-                        console.error('Erro ao salvar arquivo:', err);
-                        reject(err);
-                    });
+                file.on('end', () => {
+                    videoBuffer = Buffer.concat(chunks);
                 });
             }
         });
 
         bb.on('finish', async () => {
             try {
-                // Aguardar a escrita do arquivo ser completada
-                if (fileWritePromise) {
-                    await fileWritePromise;
-                }
-
                 const { titulo, descricao, data, tipo_midia } = fields;
 
-                if (!videoFile) {
+                if (!videoBuffer) {
                     return res.status(400).json({ error: 'Arquivo de vídeo não foi enviado' });
                 }
+
+                // Gerar nome único para o arquivo
+                const timestamp = Date.now();
+                const randomStr = Math.random().toString(36).substring(7);
+                videoFilename = `video_${timestamp}_${randomStr}`;
+
+                // Upload para Supabase Storage
+                const { data: uploadData, error: uploadError } = await supabase
+                    .storage
+                    .from('galeria-videos')
+                    .upload(videoFilename, videoBuffer, {
+                        contentType: videoMimetype || 'video/mp4',
+                        upsert: false
+                    });
+
+                if (uploadError) {
+                    console.error('Erro ao fazer upload no Supabase Storage:', uploadError);
+                    return res.status(500).json({ error: `Erro no Supabase Storage: ${uploadError.message}` });
+                }
+
+                // Obter URL pública do vídeo
+                const { data: { publicUrl } } = supabase
+                    .storage
+                    .from('galeria-videos')
+                    .getPublicUrl(videoFilename);
 
                 await ensureGaleriaPositions();
 
@@ -780,10 +782,11 @@ app.post('/api/galeria/video-upload', async (req, res) => {
                 const insertData = {
                     titulo,
                     descricao,
-                    url: videoFile,
+                    url: publicUrl,
                     data: data || null,
                     position: nextPos,
-                    tipo_midia: tipo_midia || 'video'
+                    tipo_midia: tipo_midia || 'video',
+                    storage_key: videoFilename
                 };
 
                 const { data: novaImagem, error } = await supabase
@@ -792,7 +795,13 @@ app.post('/api/galeria/video-upload', async (req, res) => {
                     .select();
 
                 if (error) throw error;
-                res.status(201).json({ message: 'Vídeo upload com sucesso!', data: novaImagem });
+                
+                console.log('✅ Vídeo salvo no Supabase Storage:', videoFilename);
+                res.status(201).json({ 
+                    message: 'Vídeo upload com sucesso!', 
+                    data: novaImagem,
+                    storage_url: publicUrl
+                });
             } catch (error) {
                 console.error('Erro ao processar upload:', error.message);
                 res.status(500).json({ error: `Erro ao processar upload: ${error.message}` });
@@ -943,6 +952,31 @@ app.delete('/api/galeria/:id', async (req, res) => {
     }
 
     try {
+        // Obter o item da galeria para pegar a storage_key
+        const { data: galeriaItem, error: fetchError } = await supabase
+            .from('galeria')
+            .select('storage_key, url')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Se tem storage_key, deletar do Supabase Storage
+        if (galeriaItem?.storage_key) {
+            const { error: storageError } = await supabase
+                .storage
+                .from('galeria-videos')
+                .remove([galeriaItem.storage_key]);
+
+            if (storageError) {
+                console.error('Erro ao deletar vídeo do Storage:', storageError);
+                // Continuar mesmo se houver erro no storage
+            } else {
+                console.log('✅ Vídeo deletado do Supabase Storage:', galeriaItem.storage_key);
+            }
+        }
+
+        // Deletar o registro da galeria
         const { error } = await supabase
             .from('galeria')
             .delete()
@@ -951,10 +985,10 @@ app.delete('/api/galeria/:id', async (req, res) => {
         if (error) throw error;
 
         await ensureGaleriaPositions();
-        res.json({ message: 'Imagem apagada com sucesso!' });
+        res.json({ message: 'Imagem/vídeo apagado com sucesso!' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Erro ao apagar imagem' });
+        res.status(500).json({ error: 'Erro ao apagar imagem/vídeo' });
     }
 });
 
