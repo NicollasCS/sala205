@@ -1,0 +1,20 @@
+# Ignore local development files
+.git
+.gitignore
+.env.local
+.env.development
+.DS_Store
+node_modules
+npm-debug.log
+*.log
+.next
+.vscode
+README.md
+SETUP_SUPABASE.md
+SETUP_SUPABASE_FINAL.md
+SUPABASE_FIX.md
+SUPABASE_STORAGE_SETUP.md
+LOGS_GUIDE.md
+TODO.md
+database/
+public/uploads/

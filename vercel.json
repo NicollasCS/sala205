@@ -2,17 +2,18 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "env": {
+    "NODE_ENV": "production"
+  },
   "builds": [
     {
       "src": "src/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
-  ],
-  "rewrites": [
-    { "source": "/admin", "destination": "/auth/admin/admin.html" },
-    { "source": "/login", "destination": "/auth/login/login.html" },
-    { "source": "/cadastro", "destination": "/auth/cadastro/cadastro.html" },
-    { "source": "/", "destination": "/index.html" }
   ],
   "routes": [
     {
@@ -20,8 +21,48 @@
       "dest": "src/server.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "src/server.js"
+      "src": "/uploads/(.*)",
+      "dest": "public/uploads/$1"
+    },
+    {
+      "src": "/auth/admin/admin.html",
+      "dest": "public/auth/admin/admin.html"
+    },
+    {
+      "src": "/auth/login/login.html",
+      "dest": "public/auth/login/login.html"
+    },
+    {
+      "src": "/auth/cadastro/cadastro.html",
+      "dest": "public/auth/cadastro/cadastro.html"
+    },
+    {
+      "src": "/(.*)\\.html$",
+      "dest": "public/$1.html"
+    },
+    {
+      "src": "/(.*)\\.js$",
+      "dest": "public/$1.js"
+    },
+    {
+      "src": "/(.*)\\.css$",
+      "dest": "public/$1.css"
+    },
+    {
+      "src": "/admin",
+      "dest": "public/auth/admin/admin.html"
+    },
+    {
+      "src": "/login",
+      "dest": "public/auth/login/login.html"
+    },
+    {
+      "src": "/cadastro",
+      "dest": "public/auth/cadastro/cadastro.html"
+    },
+    {
+      "src": "/(?!api).*",
+      "dest": "public/index.html"
     }
   ]
 }
