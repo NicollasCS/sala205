@@ -294,16 +294,24 @@ function updatePermissions() {
     
     // Mostrar/esconder formulário de atualizações - apenas dev pode editar
     if (formContainer) {
-        formContainer.style.display = userRole === 'dev' ? 'block' : 'none';
+        if (userRole === 'dev') {
+            formContainer.style.display = 'block';
+        } else {
+            formContainer.style.display = 'none';
+        }
     }
 
-    // Mostrar aviso para admin
+    // Mostrar aviso para admin que não pode editar
     if (adminWarning) {
-        adminWarning.style.display = userRole === 'dev' ? 'none' : 'block';
+        if (userRole === 'admin') {
+            adminWarning.style.display = 'block';
+        } else {
+            adminWarning.style.display = 'none';
+        }
     }
 
     if (userRole === 'admin') {
-        console.log('Modo Admin: sem permissão para editar atualizações');
+        console.log('Modo Admin: apenas visualizar atualizações');
     }
 }
 
@@ -331,6 +339,8 @@ function changeTab(tab) {
     if (tab === 'logs') {
         filterLogs('logs');
     } else if (tab === 'atualizacoes') {
+        // Garantir que permissões sejam atualizadas ao trocar para atualizações
+        updatePermissions();
         filterLogs('atualizacoes');
     }
 }
