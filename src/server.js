@@ -1237,13 +1237,27 @@ app.delete('/api/logs', async (req, res) => {
     }
 });
 
-// Rotas explícitas para servir arquivos HTML
+// Rotas explícitas para servir arquivos HTML - as URLs podem ser:
+// /auth/admin/admin, /auth/login/login, /auth/cadastro/cadastro
+// Ou simplificadas: /admin, /login, /cadastro
+app.get('/auth/admin/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
+});
+
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
 });
 
+app.get('/auth/login/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/login/login.html'));
+});
+
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/login/login.html'));
+});
+
+app.get('/auth/cadastro/cadastro', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
 });
 
 app.get('/cadastro', (req, res) => {
