@@ -1237,6 +1237,24 @@ app.delete('/api/logs', async (req, res) => {
     }
 });
 
+// Rotas explícitas para servir arquivos HTML
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/login/login.html'));
+});
+
+app.get('/cadastro', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
+});
+
+// Fallback para index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
 app.listen(PORT, async () => {
     await initDB();
     console.log(`Servidor rodando em http://localhost:${PORT}`);
