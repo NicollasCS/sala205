@@ -276,6 +276,7 @@ function updatePermissions() {
     const userRole = localStorage.getItem('userRole');
     const formContainer = qs('atualizacoes-form-container');
     const adminWarning = qs('atualizacoes-admin-warning');
+    const actionsDiv = qs('atualizacoes-actions');
     
     // Atualizar indicador de role
     const roleIndicator = qs('userRoleIndicator');
@@ -298,6 +299,15 @@ function updatePermissions() {
             formContainer.style.display = 'block';
         } else {
             formContainer.style.display = 'none';
+        }
+    }
+
+    // Mostrar/esconder botões de ação - apenas dev pode deletar/exportar
+    if (actionsDiv) {
+        if (userRole === 'dev') {
+            actionsDiv.style.display = 'flex';
+        } else {
+            actionsDiv.style.display = 'none';
         }
     }
 
@@ -1335,6 +1345,13 @@ function displayAtualizacoesLogs(logs) {
 }
 
 async function clearAtualizacoesLogs() {
+    // Apenas desenvolvedores podem limpar atualizações
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'dev') {
+        alert('Apenas desenvolvedores podem limpar atualizações');
+        return;
+    }
+
     if (!confirm('Tem certeza que deseja limpar TODAS as atualizações? Esta ação não pode ser desfeita.')) {
         return;
     }
@@ -1360,6 +1377,13 @@ async function clearAtualizacoesLogs() {
 }
 
 function exportAtualizacoesLogs() {
+    // Apenas desenvolvedores podem exportar atualizações
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'dev') {
+        alert('Apenas desenvolvedores podem exportar atualizações');
+        return;
+    }
+
     const atualizacoes = allLogs.filter(log => log.categoria === 'ATUALIZAÇÕES');
     
     if (atualizacoes.length === 0) {
