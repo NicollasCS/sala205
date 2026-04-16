@@ -30,10 +30,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Supabase Client
-const supabase = createClient(
-    process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ''
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const supabase = supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
 // 🛡️ Filtro simples de palavrões
 const palavroesProibidos = ['puta', 'merda', 'caralho', 'bosta', 'cu', 'fuck', 'shit', 'ass', 'damn'];
