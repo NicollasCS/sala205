@@ -217,6 +217,15 @@ async function initDB() {
     }
 }
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        supabaseConfigured: !!process.env.SUPABASE_URL
+    });
+});
+
 // Rota para cadastro
 app.post('/api/cadastro', async (req, res) => {
     const { nome, senha } = req.body;
