@@ -1,5 +1,5 @@
 // Handler minimalista para /api/health - sem dependências
-module.exports = (req, res) => {
+export default (req, res) => {
     try {
         if (req.method === 'GET') {
             res.status(200).json({
