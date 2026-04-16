@@ -8,7 +8,6 @@ import multer from 'multer';
 import busboy from 'busboy';
 import fs from 'fs';
 import crypto from 'crypto';
-import Filter from 'bad-words';
 
 dotenv.config();
 
@@ -36,13 +35,12 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ''
 );
 
-// 🛡️ Filtro de Palavrões para Comentários
-const profanityFilter = new Filter();
-
-// Adicionar palavras customizadas em português (palavrões comuns)
-profanityFilter.addWords(
-    'palavrão1', 'palavrão2', 'palavrão3' // você pode adicionar mais conforme necessário
-);
+// 🛡️ Filtro simples de palavrões
+const palavroesProibidos = ['puta', 'merda', 'caralho', 'bosta', 'cu', 'fuck', 'shit', 'ass', 'damn'];
+function profanityFilterIsProfane(text) {
+    const lower = text.toLowerCase();
+    return palavroesProibidos.some(word => lower.includes(word));
+}
 
 function isAdminToken(req) {
     const token = req.headers['x-admin-token'];
@@ -339,7 +337,7 @@ app.post('/api/comentarios', async (req, res) => {
     }
 
     // 🛡️ Validar palavrões
-    if (profanityFilter.isProfane(texto)) {
+    if (profanityFilterIsProfane(texto)) {
         return res.status(400).json({ error: 'Comentário contém linguagem inadequada. Por favor, revise.' });
     }
 
@@ -597,7 +595,7 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
     }
 
     // 🛡️ Validar palavrões
-    if (profanityFilter.isProfane(texto)) {
+    if (profanityFilterIsProfane(texto)) {
         return res.status(400).json({ error: 'Comentário contém linguagem inadequada. Por favor, revise.' });
     }
 
