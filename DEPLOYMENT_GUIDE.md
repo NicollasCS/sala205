@@ -4,7 +4,8 @@
 
 ### Vercel (Serverless)
 - **`/api/index.js`** - Handler principal exportado como `export default app`
-- **`/vercel.json`** - Configuração do Vercel apontando para `api/index.js`
+- **`/api/[...slug].js`** - Catch-all Vercel para redirecionar `/api/*` ao mesmo handler
+- **`/vercel.json`** - Configuração do Vercel para o projeto
 - **`/public`** - Arquivos estáticos (HTML, CSS, JS)
 
 ### Desenvolvimento Local

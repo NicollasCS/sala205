@@ -32,6 +32,15 @@ const supabase = supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey)
     : null;
 
+if (!supabase) {
+    console.error('❌ Supabase não configurado. Verifique SUPABASE_URL e SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY.');
+    app.use('/api', (req, res) => {
+        res.status(500).json({
+            error: 'Supabase não configurado no servidor. Verifique SUPABASE_URL e SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente do Vercel.'
+        });
+    });
+}
+
 // 🛡️ Filtro simples de palavrões
 const palavroesProibidos = ['puta', 'merda', 'caralho', 'bosta', 'cu', 'fuck', 'shit', 'ass', 'damn'];
 function profanityFilterIsProfane(text) {
