@@ -22,10 +22,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Static files - apenas em ambiente de desenvolvimento
-if (process.env.NODE_ENV !== 'production') {
-    app.use(express.static(path.join(__dirname, '../public')));
-}
+// IMPORTANTE: Não usar express.static() em serverless Vercel
+// Arquivos estáticos são servidos separadamente pelo Vercel
 
 // Supabase Client
 const supabase = createClient(
@@ -1751,20 +1749,13 @@ app.get('/cadastro', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
 });
 
-// Fallback para index.html - apenas em desenvolvimento
-if (process.env.NODE_ENV !== 'production') {
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../public/index.html'));
+// Catchall: retornar 404 JSON (não tentar servir arquivos em serverless)
+app.use((req, res) => {
+    res.status(404).json({ 
+        error: 'Rota não encontrada. Use uma rota /api/...',
+        path: req.path,
+        method: req.method 
     });
-} else {
-    // Em produção, retornar JSON para rotas não API
-    app.get('*', (req, res) => {
-        res.status(404).json({ 
-            error: 'Rota não encontrada', 
-            path: req.path,
-            method: req.method 
-        });
-    });
-}
+});
 
 export default app;
