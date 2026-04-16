@@ -1719,6 +1719,8 @@ app.delete('/api/database/table/:tableName/clear', async (req, res) => {
         console.error(`Erro ao limpar tabela ${tableName}:`, error);
         res.status(500).json({ error: `Erro ao limpar tabela ${tableName}` });
     }
+});
+
 // Rotas explícitas para servir arquivos HTML - as URLs podem ser:
 // /auth/admin/admin, /auth/login/login, /auth/cadastro/cadastro
 // Ou simplificadas: /admin, /login, /cadastro
