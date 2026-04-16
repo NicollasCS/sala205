@@ -15,19 +15,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const GALERIA_PAGE_SIZE = 5;
-
-// 📝 NOTA: Upload de vídeos agora usa Supabase Storage (não mais local)
-// Multer deixado para referência, mas não é mais usado
-// const uploadDir = path.join(__dirname, '../public/uploads/videos');
-// const upload = multer({...});
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(__dirname, '../public')));
+
+// IMPORTANTE: Não usar express.static() em serverless Vercel
+// Arquivos estáticos são servidos separadamente pelo Vercel
 
 // Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -1729,9 +1725,7 @@ app.delete('/api/database/table/:tableName/clear', async (req, res) => {
     }
 });
 
-// Rotas explícitas para servir arquivos HTML - as URLs podem ser:
-// /auth/admin/admin, /auth/login/login, /auth/cadastro/cadastro
-// Ou simplificadas: /admin, /login, /cadastro
+// Rotas explícitas para servir arquivos HTML
 app.get('/auth/admin/admin', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
 });
@@ -1756,36 +1750,13 @@ app.get('/cadastro', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
 });
 
-// Fallback para index.html
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+// Catchall: retornar 404 JSON (não tentar servir arquivos em serverless)
+app.use((req, res) => {
+    res.status(404).json({ 
+        error: 'Rota não encontrada. Use uma rota /api/...',
+        path: req.path,
+        method: req.method 
+    });
 });
 
-app.listen(PORT, async () => {
-    await initDB();
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-    console.log(`Conectado ao Supabase: ${process.env.SUPABASE_URL}`);
-
-    try {
-        const { data, error } = await supabase
-            .from('usuarios')
-            .select('id')
-            .eq('nome', 'administrador_turma205-1')
-            .limit(1)
-            .single();
-
-        if (error && error.code === 'PGRST116') {
-            await supabase
-                .from('usuarios')
-                .insert([{
-                    nome: 'administrador_turma205-1',
-                    senha: 'admin123'
-                }]);
-            console.log('✅ Usuário administrador criado');
-        } else if (data) {
-            console.log('Admin already exists or setup complete');
-        }
-    } catch (e) {
-        console.log('Admin already exists or setup complete');
-    }
-});
+export default app;
