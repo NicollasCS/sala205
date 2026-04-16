@@ -249,28 +249,76 @@ function onTipoMidiaChange() {
     resetCropState();
 }
 
-function handleLoginSubmit(e) {
+async function handleLoginSubmit(e) {
     e.preventDefault();
     const user = qs('adminUser').value.trim();
     const pass = qs('adminPass').value;
 
-    if (user === DEV_USER && pass === DEV_PASS) {
-        localStorage.setItem('adminLoggedIn', 'true');
-        localStorage.setItem('userRole', 'dev');
-        state.userRole = 'dev';
-        showAdminPanel();
+    if (!user || !pass) {
+        showLoginError('Nome e senha são obrigatórios.');
         return;
     }
 
-    if (user === ADMIN_USER && pass === ADMIN_PASS) {
-        localStorage.setItem('adminLoggedIn', 'true');
-        localStorage.setItem('userRole', 'admin');
-        state.userRole = 'admin';
-        showAdminPanel();
-        return;
-    }
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: user, senha: pass })
+        });
 
-    showLoginError();
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (user === DEV_USER && pass === DEV_PASS) {
+                localStorage.setItem('adminLoggedIn', 'true');
+                localStorage.setItem('userRole', 'dev');
+                localStorage.setItem('userName', DEV_USER);
+                state.userRole = 'dev';
+                showAdminPanel();
+                return;
+            }
+            if (user === ADMIN_USER && pass === ADMIN_PASS) {
+                localStorage.setItem('adminLoggedIn', 'true');
+                localStorage.setItem('userRole', 'admin');
+                localStorage.setItem('userName', ADMIN_USER);
+                state.userRole = 'admin';
+                showAdminPanel();
+                return;
+            }
+            return showLoginError(data.error || 'Credenciais incorretas!');
+        }
+
+        const userData = data.user;
+        if (!userData) {
+            return showLoginError('Resposta inválida do servidor.');
+        }
+
+        localStorage.setItem('adminLoggedIn', 'true');
+        localStorage.setItem('userRole', userData.role || (userData.is_root ? 'root' : userData.is_admin ? 'admin' : 'user'));
+        localStorage.setItem('userName', userData.nome);
+        localStorage.setItem('userId', userData.id);
+        state.userRole = localStorage.getItem('userRole');
+        showAdminPanel();
+    } catch (error) {
+        console.warn('Erro de rede ao tentar login:', error);
+        if (user === DEV_USER && pass === DEV_PASS) {
+            localStorage.setItem('adminLoggedIn', 'true');
+            localStorage.setItem('userRole', 'dev');
+            localStorage.setItem('userName', DEV_USER);
+            state.userRole = 'dev';
+            showAdminPanel();
+            return;
+        }
+        if (user === ADMIN_USER && pass === ADMIN_PASS) {
+            localStorage.setItem('adminLoggedIn', 'true');
+            localStorage.setItem('userRole', 'admin');
+            localStorage.setItem('userName', ADMIN_USER);
+            state.userRole = 'admin';
+            showAdminPanel();
+            return;
+        }
+        showLoginError('Não foi possível conectar ao servidor de login.');
+    }
 }
 
 function showAdminPanel() {
@@ -356,6 +404,8 @@ function updatePermissions() {
 function handleLogout() {
     localStorage.removeItem('adminLoggedIn');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userId');
     state.userRole = null;
     qs('adminPanel').style.display = 'none';
     qs('loginScreen').style.display = 'block';
@@ -390,9 +440,22 @@ async function apiFetch(url, options = {}) {
         ...(options.headers || {})
     };
 
-    if (options.admin !== false) {
-        const userRole = localStorage.getItem('userRole');
-        headers['x-admin-token'] = userRole === 'dev' ? DEV_TOKEN : ADMIN_TOKEN;
+    const userRole = localStorage.getItem('userRole');
+    const userName = localStorage.getItem('userName');
+
+    if (options.admin !== false && userRole) {
+        if (userRole === 'dev') {
+            headers['x-admin-token'] = DEV_TOKEN;
+        } else if (userRole === 'admin' || userRole === 'root') {
+            headers['x-admin-token'] = ADMIN_TOKEN;
+        }
+        if (userRole === 'root') {
+            headers['x-root-token'] = 'turma205-root';
+        }
+    }
+
+    if (userName) {
+        headers['x-requester-name'] = userName;
     }
 
     return fetch(url, {

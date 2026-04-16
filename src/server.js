@@ -198,6 +198,113 @@ async function getDescricaoAtual() {
     }
 }
 
+async function getAppSetting(key) {
+    if (!supabase) return null;
+    try {
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', key)
+            .maybeSingle();
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.code === '42703') return null;
+            throw error;
+        }
+
+        return data?.value ?? null;
+    } catch (err) {
+        if (err.code === 'PGRST205' || err.code === '42703' || err.message?.includes('app_settings')) {
+            return null;
+        }
+        throw err;
+    }
+}
+
+async function setAppSetting(key, value) {
+    if (!supabase) throw new Error('Supabase não configurado');
+    try {
+        const payload = {
+            key,
+            value: String(value),
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('app_settings')
+            .upsert(payload, { onConflict: 'key' })
+            .select()
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST205' || error.code === '42703') {
+                throw new Error('Tabela app_settings não encontrada');
+            }
+            throw error;
+        }
+
+        return data;
+    } catch (err) {
+        if (err.message?.includes('app_settings')) {
+            throw err;
+        }
+        throw err;
+    }
+}
+
+function normalizeUser(user) {
+    if (!user) return null;
+    const role = user.role || (user.is_admin ? 'admin' : 'user');
+    const is_admin = user.nome === 'administrador_turma205-1' || role === 'admin' || role === 'root' || user.is_admin;
+    const is_root = user.nome === 'administrador_turma205-1' || role === 'root';
+    return {
+        id: user.id,
+        nome: user.nome,
+        role,
+        is_admin,
+        is_root
+    };
+}
+
+async function promoteUserToAdmin(userId) {
+    if (!supabase) throw new Error('Supabase não configurado');
+    let lastError = null;
+
+    try {
+        const { error } = await supabase
+            .from('usuarios')
+            .update({ role: 'admin' })
+            .eq('id', userId);
+
+        if (!error) return;
+        lastError = error;
+    } catch (err) {
+        if (err.code !== '42703') throw err;
+        lastError = err;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('usuarios')
+            .update({ is_admin: true })
+            .eq('id', userId);
+
+        if (!error) return;
+        lastError = error;
+    } catch (err) {
+        if (err.code !== '42703') throw err;
+        lastError = err;
+    }
+
+    if (lastError) {
+        throw new Error(lastError.message || lastError.code || 'Não foi possível promover o usuário. Verifique o esquema do banco.');
+    }
+}
+
+function isRootAdminToken(req) {
+    return req.headers['x-root-token'] === 'turma205-root';
+}
+
 // Função para inicializar o banco (criar tabelas se não existirem)
 async function initDB() {
     try {
@@ -272,7 +379,6 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        // Se é admin, compara o hash MD5 da senha
         if (nome === 'administrador_turma205-1') {
             const adminSenhaHash = crypto.createHash('md5').update('administrador_turma205-1').digest('hex');
             if (senha === adminSenhaHash) {
@@ -281,14 +387,31 @@ app.post('/api/login', async (req, res) => {
                     user: {
                         id: 'admin',
                         nome: 'administrador_turma205-1',
-                        is_admin: true
+                        role: 'root',
+                        is_admin: true,
+                        is_root: true
                     }
                 });
             }
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
-        // Para usuários normais, busca com MD5
+        if (nome === 'dev205-1') {
+            const devSenhaHash = crypto.createHash('md5').update('dev205-1').digest('hex');
+            if (senha === devSenhaHash) {
+                return res.json({
+                    message: 'Login bem-sucedido!',
+                    user: {
+                        id: 'dev',
+                        nome: 'dev205-1',
+                        role: 'dev',
+                        is_admin: false,
+                        is_root: false
+                    }
+                });
+            }
+        }
+
         const { data: user, error } = await supabase
             .from('usuarios')
             .select('*')
@@ -301,13 +424,10 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
-        res.json({
+        const normalized = normalizeUser(user);
+        return res.json({
             message: 'Login bem-sucedido!',
-            user: {
-                id: user.id,
-                nome: user.nome,
-                is_admin: nome === 'administrador_turma205-1'
-            }
+            user: normalized
         });
     } catch (error) {
         console.error(error);
@@ -730,7 +850,7 @@ app.get('/api/usuarios', async (req, res) => {
     try {
         const { data: usuarios, error } = await supabase
             .from('usuarios')
-            .select('id, nome, created')
+            .select('id, nome, created, role, is_admin')
             .order('created', { ascending: false });
 
         if (error) throw error;
@@ -739,6 +859,158 @@ app.get('/api/usuarios', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao listar usuários' });
+    }
+});
+
+app.post('/api/admin-requests', async (req, res) => {
+    const requesterToken = req.headers['x-admin-token'];
+    if (!requesterToken) {
+        return res.status(403).json({ error: 'Acesso negado. Administrador requerido.' });
+    }
+
+    const { requested_user_id, requested_user_name, requested_by_id, requested_by_name, target_role = 'admin' } = req.body;
+    if (!requested_user_id || !requested_user_name || !requested_by_id || !requested_by_name) {
+        return res.status(400).json({ error: 'Dados de solicitação incompletos.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('admin_requests')
+            .insert([{ requested_user_id, requested_user_name, requested_by_id, requested_by_name, target_role, status: 'pending', created_at: new Date().toISOString() }])
+            .select()
+            .single();
+
+        if (error) {
+            if (error.code === '42703' || error.message?.includes('admin_requests')) {
+                return res.status(500).json({ error: 'Tabela admin_requests não encontrada no Supabase. Crie a tabela para habilitar solicitações de admin.' });
+            }
+            throw error;
+        }
+
+        res.status(201).json(data);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao criar solicitação de admin' });
+    }
+});
+
+app.get('/api/admin-requests', async (req, res) => {
+    const requesterToken = req.headers['x-admin-token'];
+    if (!requesterToken) {
+        return res.status(403).json({ error: 'Acesso negado. Administrador requerido.' });
+    }
+
+    try {
+        let query = supabase.from('admin_requests').select('*').order('created_at', { ascending: false });
+
+        if (!isRootAdminToken(req)) {
+            const requesterName = req.headers['x-requester-name'];
+            if (!requesterName) {
+                return res.status(403).json({ error: 'Acesso negado. Root ou autor da solicitação requerido.' });
+            }
+            query = query.eq('requested_by_name', requesterName);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+            if (error.code === '42703' || error.message?.includes('admin_requests')) {
+                return res.status(500).json({ error: 'Tabela admin_requests não encontrada no Supabase.' });
+            }
+            throw error;
+        }
+
+        res.json(data || []);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao listar solicitações de admin' });
+    }
+});
+
+app.put('/api/admin-requests/:id', async (req, res) => {
+    if (!isRootAdminToken(req)) {
+        return res.status(403).json({ error: 'Apenas administrador root pode revisar solicitações.' });
+    }
+
+    const { id } = req.params;
+    const { action, reason, reviewed_by_name = 'administrador_turma205-1' } = req.body;
+    if (!['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: 'Ação inválida. Use approve ou reject.' });
+    }
+
+    try {
+        const { data: request, error: fetchError } = await supabase
+            .from('admin_requests')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !request) {
+            return res.status(404).json({ error: 'Solicitação não encontrada.' });
+        }
+
+        if (request.status !== 'pending') {
+            return res.status(400).json({ error: 'Solicitação já foi processada.' });
+        }
+
+        if (action === 'approve') {
+            await promoteUserToAdmin(request.requested_user_id);
+        }
+
+        const { error: updateError } = await supabase
+            .from('admin_requests')
+            .update({
+                status: action === 'approve' ? 'approved' : 'rejected',
+                reviewed_at: new Date().toISOString(),
+                reviewed_by_name,
+                review_reason: reason || null
+            })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        res.json({ message: `Solicitação ${action} com sucesso.` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao processar solicitação de admin' });
+    }
+});
+
+app.get('/api/site-status', async (req, res) => {
+    try {
+        const maintenanceModeEnv = process.env.MAINTENANCE_MODE === 'true';
+        const maintenanceMessageEnv = process.env.MAINTENANCE_MESSAGE || 'Site em manutenção. Volte mais tarde.';
+        const maintenanceValue = await getAppSetting('maintenance_mode');
+        const messageValue = await getAppSetting('maintenance_message');
+
+        const maintenanceMode = maintenanceValue !== null ? maintenanceValue === 'true' : maintenanceModeEnv;
+        const maintenanceMessage = messageValue || maintenanceMessageEnv;
+
+        res.json({ maintenanceMode, maintenanceMessage });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao buscar status do site' });
+    }
+});
+
+app.put('/api/site-status', async (req, res) => {
+    if (!isRootAdminToken(req)) {
+        return res.status(403).json({ error: 'Apenas administrador root pode alterar o modo de manutenção.' });
+    }
+
+    const { maintenanceMode, maintenanceMessage } = req.body;
+    if (typeof maintenanceMode !== 'boolean') {
+        return res.status(400).json({ error: 'maintenanceMode deve ser booleano.' });
+    }
+
+    try {
+        await setAppSetting('maintenance_mode', maintenanceMode ? 'true' : 'false');
+        if (typeof maintenanceMessage === 'string') {
+            await setAppSetting('maintenance_message', maintenanceMessage);
+        }
+        res.json({ message: 'Status do site atualizado.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message || 'Erro ao salvar status do site' });
     }
 });
 
