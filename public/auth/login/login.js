@@ -15,6 +15,11 @@ document.getElementById("formLogin").addEventListener("submit", async function (
     // Fazer hash da senha com MD5
     const senhaHash = CryptoJS.MD5(senha).toString();
     
+    console.log('📝 Tentativa de login:');
+    console.log('   Usuário:', nome);
+    console.log('   Senha digitada:', senha);
+    console.log('   Senha MD5:', senhaHash);
+    
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
     document.querySelector('button[type="submit"]').disabled = true;
 
@@ -30,6 +35,7 @@ document.getElementById("formLogin").addEventListener("submit", async function (
     document.querySelector('button[type="submit"]').disabled = false;
 
     if (response.ok) {
+      console.log('✅ Login bem-sucedido:', data.user);
       localStorage.setItem('usuarioLogado', JSON.stringify(data.user));
       localStorage.setItem('popupVisto', 'true');
       // Animação de sucesso
@@ -38,13 +44,14 @@ document.getElementById("formLogin").addEventListener("submit", async function (
         window.location.href = '../../index.html';
       }, 800);
     } else {
+      console.log('❌ Erro no login:', data);
       document.getElementById('formError').textContent = data.error || 'Erro no login';
       document.getElementById('formError').style.display = 'block';
     }
   } catch (error) {
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-arrow-right"></i> Entrar';
     document.querySelector('button[type="submit"]').disabled = false;
-    console.error('Erro:', error);
+    console.error('❌ Erro de conexão:', error);
     document.getElementById('formError').textContent = 'Erro de conexão. Verifique o servidor.';
     document.getElementById('formError').style.display = 'block';
   }

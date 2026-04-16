@@ -4,6 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Sala 205</title>
+    <link rel="stylesheet" href="admin.css">
+    <style>
+      .calendar-week-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .weekday-card {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(148,163,184,0.18);
+        border-radius: 24px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 220px;
+      }
+      .weekday-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .weekday-card-header strong {
+        font-size: 1rem;
+      }
+      .weekday-card-header span {
+        color: #94a3b8;
+        font-size: 0.88rem;
+      }
+      .weekday-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        flex: 1;
+      }
+      .weekday-event-item {
+        background: rgba(59,130,246,0.1);
+        border-radius: 16px;
+        padding: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .weekday-event-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .event-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+      }
+      .event-type {
+        color: #2563eb;
+        font-size: 0.85rem;
+      }
+      .event-description {
+        color: #cbd5e1;
+        font-size: 0.91rem;
+        margin: 0;
+      }
+      .empty-day {
+        color: #94a3b8;
+        padding: 1rem;
+        background: rgba(255,255,255,0.04);
+        border-radius: 16px;
+        border: 1px dashed rgba(148,163,184,0.25);
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="admin.js" defer></script>
     <link rel="stylesheet" href="/auth/admin/admin.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="/auth/admin/sortable.min.js"></script>
@@ -70,6 +141,10 @@
                     <i class="fas fa-images"></i>
                     <span>Galeria</span>
                 </button>
+                <button class="nav-btn" data-tab="calendario">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Calendário</span>
+                </button>
                 <button class="nav-btn" data-tab="descricao">
                     <i class="fas fa-info-circle"></i>
                     <span>Descrição</span>
@@ -85,6 +160,10 @@
                 <button class="nav-btn" data-tab="atualizacoes">
                     <i class="fas fa-upload"></i>
                     <span>Atualizações</span>
+                </button>
+                <button class="nav-btn" data-tab="database">
+                    <i class="fas fa-database"></i>
+                    <span>Banco de Dados</span>
                 </button>
             </nav>
             <button id="logoutBtn" class="logout-btn">
@@ -139,6 +218,59 @@
                 </div>
                 <div id="galeria-list" class="list-container">
                     Carregando...
+                </div>
+            </div>
+
+            <!-- Tab: Calendário -->
+            <div id="tab-calendario" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-calendar-alt"></i> Calendário da Semana</h1>
+                    <div class="tab-actions">
+                        <button id="add-calendario-btn" class="add-btn">
+                            <i class="fas fa-plus"></i> Novo Evento
+                        </button>
+                    </div>
+                </div>
+                <div id="calendario-list" class="list-container">
+                    Carregando...
+                </div>
+            </div>
+
+            <div id="calendarioModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-calendar-alt"></i> Evento do Calendário</h2>
+                        <button class="close-btn" onclick="fecharCalendarioModal()" title="Fechar">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="calendarioForm">
+                        <div class="form-group">
+                            <label for="calendarioTitulo">Título</label>
+                            <input type="text" id="calendarioTitulo" placeholder="Título do evento" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="calendarioDescricao">Descrição</label>
+                            <textarea id="calendarioDescricao" rows="4" placeholder="Detalhes do evento"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="calendarioData">Data</label>
+                            <input type="date" id="calendarioData" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="calendarioTipo">Tipo</label>
+                            <select id="calendarioTipo">
+                                <option value="Aviso">Aviso</option>
+                                <option value="Prova">Prova</option>
+                                <option value="Trabalho">Trabalho</option>
+                                <option value="Atividade">Atividade</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn-cancel" onclick="fecharCalendarioModal()">Cancelar</button>
+                            <button type="submit" class="btn-save"><i class="fas fa-save"></i> Salvar Evento</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -287,6 +419,37 @@
                 </div>
                 <div id="atualizacoes-list" class="list-container logs-container">
                     Carregando atualizações...
+                </div>
+            </div>
+
+            <!-- Tab: Banco de Dados -->
+            <div id="tab-database" class="tab-content">
+                <div class="tab-header">
+                    <h1><i class="fas fa-database"></i> Banco de Dados</h1>
+                    <div id="database-warning-badge" style="background: #fbbf24; color: #000; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                        <i class="fas fa-exclamation-triangle"></i> Seção para usuários avançados
+                    </div>
+                </div>
+
+                <div id="database-advanced-warning" style="background: rgba(59,130,246,0.1); border-left: 4px solid #3b82f6; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <i class="fas fa-info-circle" style="color: #3b82f6; margin-right: 0.5rem;"></i>
+                    <strong>⚠️ Área de Desenvolvedores</strong>
+                    <p style="margin: 0.5rem 0 0 0; color: #cbd5e1;">
+                        Você está acessando ferramentas avançadas de gerenciamento de banco de dados. Use com cuidado!
+                    </p>
+                </div>
+
+                <div class="database-controls" style="margin-bottom: 2rem;">
+                    <button id="database-refresh-btn" class="refresh-btn" style="background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-sync-alt"></i> Atualizar Dados
+                    </button>
+                </div>
+
+                <div id="database-content" class="tab-content-inner">
+                    <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+                        <i class="fas fa-database" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <p>Carregando tabelas...</p>
+                    </div>
                 </div>
             </div>
         </main>
