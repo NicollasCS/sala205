@@ -1719,6 +1719,36 @@ app.delete('/api/database/table/:tableName/clear', async (req, res) => {
         console.error(`Erro ao limpar tabela ${tableName}:`, error);
         res.status(500).json({ error: `Erro ao limpar tabela ${tableName}` });
     }
+// Rotas explícitas para servir arquivos HTML - as URLs podem ser:
+// /auth/admin/admin, /auth/login/login, /auth/cadastro/cadastro
+// Ou simplificadas: /admin, /login, /cadastro
+app.get('/auth/admin/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
+});
+
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/admin/admin.html'));
+});
+
+app.get('/auth/login/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/login/login.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/login/login.html'));
+});
+
+app.get('/auth/cadastro/cadastro', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
+});
+
+app.get('/cadastro', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
+});
+
+// Fallback para index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 app.listen(PORT, async () => {

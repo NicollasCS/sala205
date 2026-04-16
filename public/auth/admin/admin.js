@@ -288,6 +288,8 @@ function updatePermissions() {
     const databaseTab = qs('database-tab');
     const databaseContent = qs('database-content');
 
+    const actionsDiv = qs('atualizacoes-actions');
+    
     // Atualizar indicador de role
     const roleIndicator = qs('userRoleIndicator');
     if (roleIndicator) {
@@ -305,12 +307,29 @@ function updatePermissions() {
 
     // Mostrar/esconder formulário de atualizações - apenas dev pode editar
     if (formContainer) {
-        formContainer.style.display = userRole === 'dev' ? 'block' : 'none';
+        if (userRole === 'dev') {
+            formContainer.style.display = 'block';
+        } else {
+            formContainer.style.display = 'none';
+        }
     }
 
-    // Mostrar aviso para admin
+    // Mostrar/esconder botões de ação - apenas dev pode deletar/exportar
+    if (actionsDiv) {
+        if (userRole === 'dev') {
+            actionsDiv.style.display = 'flex';
+        } else {
+            actionsDiv.style.display = 'none';
+        }
+    }
+
+    // Mostrar aviso para admin que não pode editar
     if (adminWarning) {
-        adminWarning.style.display = userRole === 'dev' ? 'none' : 'block';
+        if (userRole === 'admin') {
+            adminWarning.style.display = 'block';
+        } else {
+            adminWarning.style.display = 'none';
+        }
     }
 
     // Bloquear cursor na seção de banco de dados para administradores normais
@@ -330,6 +349,7 @@ function updatePermissions() {
 
     if (userRole === 'admin') {
         console.log('Modo Admin: sem permissão para editar atualizações e banco de dados');
+        console.log('Modo Admin: apenas visualizar atualizações');
     }
 }
 
@@ -357,6 +377,8 @@ function changeTab(tab) {
     if (tab === 'logs') {
         filterLogs('logs');
     } else if (tab === 'atualizacoes') {
+        // Garantir que permissões sejam atualizadas ao trocar para atualizações
+        updatePermissions();
         filterLogs('atualizacoes');
     } else if (tab === 'database') {
         loadDatabase();
@@ -1543,6 +1565,13 @@ function displayAtualizacoesLogs(logs) {
 }
 
 async function clearAtualizacoesLogs() {
+    // Apenas desenvolvedores podem limpar atualizações
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'dev') {
+        alert('Apenas desenvolvedores podem limpar atualizações');
+        return;
+    }
+
     if (!confirm('Tem certeza que deseja limpar TODAS as atualizações? Esta ação não pode ser desfeita.')) {
         return;
     }
@@ -1568,6 +1597,13 @@ async function clearAtualizacoesLogs() {
 }
 
 function exportAtualizacoesLogs() {
+    // Apenas desenvolvedores podem exportar atualizações
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'dev') {
+        alert('Apenas desenvolvedores podem exportar atualizações');
+        return;
+    }
+
     const atualizacoes = allLogs.filter(log => log.categoria === 'ATUALIZAÇÕES');
     
     if (atualizacoes.length === 0) {

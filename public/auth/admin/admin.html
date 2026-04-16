@@ -75,6 +75,10 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="admin.js" defer></script>
+    <link rel="stylesheet" href="/auth/admin/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="/auth/admin/sortable.min.js"></script>
+    <script src="/auth/admin/admin.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -104,7 +108,7 @@
                     <i class="fas fa-sign-in-alt"></i> Acessar Admin
                 </button>
             </form>
-            <a href="../../index.html" class="login-link">
+            <a href="/" class="login-link">
                 <i class="fas fa-home"></i> Voltar ao Anexo
             </a>
             <div id="loginError" class="error-message" style="display: none;">
@@ -369,7 +373,7 @@
             <div id="tab-atualizacoes" class="tab-content">
                 <div class="tab-header">
                     <h1><i class="fas fa-upload"></i> Atualizações do Site</h1>
-                    <div class="tab-actions">
+                    <div class="tab-actions" id="atualizacoes-actions">
                         <button id="clear-atualizacoes-logs" class="refresh-btn" title="Limpar atualizações">
                             <i class="fas fa-trash"></i>
                         </button>
