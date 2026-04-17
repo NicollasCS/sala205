@@ -791,7 +791,7 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
             .single();
 
         if (!checkError && existingComment) {
-            return res.status(400).json({ error: 'Você já comentou nesta imagem/video' });
+            return res.status(400).json({ error: 'Você já comentou aqui. Exclua o comentário anterior para comentar novamente.' });
         }
 
         // Inserir novo comentário

@@ -23,7 +23,7 @@ document.getElementById("formLogin").addEventListener("submit", async function (
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
     document.querySelector('button[type="submit"]').disabled = true;
 
-    const response = await fetch('/api/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, senha: senhaHash }),

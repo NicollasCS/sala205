@@ -53,20 +53,6 @@ function showLoginError(message = 'Credenciais incorretas!') {
     loginError.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
 }
 
-window.togglePasswordVisibility = (fieldId) => {
-    const input = qs(fieldId);
-    const btn = window.event?.target?.closest('.toggle-password-btn');
-    if (!input || !btn) return;
-
-    if (input.type === 'password') {
-        input.type = 'text';
-        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-    } else {
-        input.type = 'password';
-        btn.innerHTML = '<i class="fas fa-eye"></i>';
-    }
-};
-
 window.onload = () => {
     bindEvents();
     carregarTema();
@@ -106,15 +92,57 @@ function aplicarTema(tema) {
     }
 }
 
-// Modo de Exibição (Claro/Escuro)
+// Modo de Exibição (Claro/Escuro/Automático)
 function carregarModoExibicao() {
     const modoArmazenado = localStorage.getItem('modoExibicao') || 'dark';
     aplicarModoExibicao(modoArmazenado);
+    
+    // Observar mudanças no navegador se em modo automático
+    if (modoArmazenado === 'auto') {
+        observarModoSistema();
+    }
+}
+
+window.togglePasswordVisibility = function(fieldId) {
+    const field = document.getElementById(fieldId);
+    const btn = document.querySelector('.toggle-password-btn');
+    const icon = btn.querySelector('i');
+    
+    if (!field) return;
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
 
 window.mudarModoExibicao = function(modo) {
     localStorage.setItem('modoExibicao', modo);
     aplicarModoExibicao(modo);
+}
+
+window.toggleModoExibicao = function() {
+    const modoAtual = localStorage.getItem('modoExibicao') || 'dark';
+    const novoModo = modoAtual === 'dark' ? 'light' : 'dark';
+    const btn = document.querySelector('.mode-toggle-btn');
+    const icon = btn.querySelector('i');
+    
+    localStorage.setItem('modoExibicao', novoModo);
+    aplicarModoExibicao(novoModo);
+    
+    // Atualizar ícone
+    if (novoModo === 'light') {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+    } else {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+    }
 }
 
 function aplicarModoExibicao(modo) {
@@ -130,6 +158,68 @@ function aplicarModoExibicao(modo) {
     const radio = document.querySelector(`input[name="darkmode"][value="${modo}"]`);
     if (radio) {
         radio.checked = true;
+    }
+    
+    // Atualizar ícone do botão de toggle
+    const btn = document.querySelector('.mode-toggle-btn');
+    if (btn) {
+        const icon = btn.querySelector('i');
+        if (icon) {
+            if (modo === 'light') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else if (modo === 'auto') {
+                icon.classList.remove('fa-moon', 'fa-sun');
+                icon.classList.add('fa-circle-half-stroke');
+            } else {
+                icon.classList.remove('fa-sun', 'fa-circle-half-stroke');
+                icon.classList.add('fa-moon');
+            }
+        }
+    }
+}
+
+// Observar mudanças de modo do sistema (para modo automático)
+function observarModoSistema() {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    // Função para lidar com mudanças
+    const handleChange = (e) => {
+        const modoArmazenado = localStorage.getItem('modoExibicao');
+        if (modoArmazenado === 'auto') {
+            const novoModo = e.matches ? 'dark' : 'light';
+            // Aplicar modo sem salvar no localStorage (mantém 'auto')
+            aplicarModoExibicaoDirecto(novoModo);
+        }
+    };
+    
+    // Listener para mudanças
+    mediaQuery.addEventListener('change', handleChange);
+}
+
+// Aplica modo de exibição sem mudar o localStorage
+function aplicarModoExibicaoDirecto(modo) {
+    document.documentElement.setAttribute('data-theme', modo);
+    document.body.classList.remove('light-mode', 'dark-mode');
+    if (modo === 'light') {
+        document.body.classList.add('light-mode');
+    } else {
+        document.body.classList.add('dark-mode');
+    }
+}
+
+window.mudarModoExibicao = function(modo) {
+    localStorage.setItem('modoExibicao', modo);
+    
+    if (modo === 'auto') {
+        // Detectar preferência atual do sistema
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        aplicarModoExibicaoDirecto(prefersDark ? 'dark' : 'light');
+        // Começar a observar mudanças
+        observarModoSistema();
+    } else {
+        // Modo manual (light ou dark)
+        aplicarModoExibicao(modo);
     }
 }
 
@@ -162,8 +252,38 @@ function bindEvents() {
     canvas.addEventListener('touchend', endDrag);
 
     document.querySelectorAll('.nav-btn').forEach((btn) => {
-        btn.addEventListener('click', () => changeTab(btn.dataset.tab));
+        btn.addEventListener('click', () => {
+            changeTab(btn.dataset.tab);
+            // Fechar menu no mobile após clicar em uma aba
+            if (window.innerWidth <= 768) {
+                closeMenuMobile();
+            }
+        });
     });
+
+    // Event listeners para mobile menu toggle
+    const toggleMenuBtn = qs('toggleMenuBtn');
+    const closeMenuBtn = qs('closeMenuBtn');
+    const sidebarNav = qs('sidebarNav');
+    
+    if (toggleMenuBtn) {
+        toggleMenuBtn.addEventListener('click', toggleMenuMobile);
+    }
+    
+    if (closeMenuBtn) {
+        closeMenuBtn.addEventListener('click', closeMenuMobile);
+    }
+
+    // Fechar menu ao clicar fora dele
+    if (window.innerWidth <= 768) {
+        document.addEventListener('click', (e) => {
+            if (sidebarNav?.classList.contains('expanded') && 
+                !sidebarNav?.contains(e.target) && 
+                !toggleMenuBtn?.contains(e.target)) {
+                closeMenuMobile();
+            }
+        });
+    }
 
     // Event listeners para Logs
     qs('clear-logs')?.addEventListener('click', clearLogs);
@@ -249,6 +369,43 @@ function onTipoMidiaChange() {
     resetCropState();
 }
 
+/* ===== MOBILE MENU FUNCTIONS ===== */
+function toggleMenuMobile() {
+    const sidebarNav = qs('sidebarNav');
+    const toggleBtn = qs('toggleMenuBtn');
+    
+    if (!sidebarNav) return;
+    
+    const isExpanded = sidebarNav.classList.contains('expanded');
+    
+    if (isExpanded) {
+        closeMenuMobile();
+    } else {
+        sidebarNav.classList.add('expanded');
+        toggleBtn?.classList.add('open');
+    }
+}
+
+function closeMenuMobile() {
+    const sidebarNav = qs('sidebarNav');
+    const toggleBtn = qs('toggleMenuBtn');
+    
+    if (!sidebarNav) return;
+    
+    sidebarNav.classList.remove('expanded');
+    toggleBtn?.classList.remove('open');
+}
+
+window.addEventListener('resize', () => {
+    // Fechar menu quando volta para desktop
+    if (window.innerWidth > 768) {
+        const sidebarNav = qs('sidebarNav');
+        const toggleBtn = qs('toggleMenuBtn');
+        sidebarNav?.classList.remove('expanded');
+        toggleBtn?.classList.remove('open');
+    }
+});
+
 async function handleLoginSubmit(e) {
     e.preventDefault();
     const user = qs('adminUser').value.trim();
@@ -260,7 +417,7 @@ async function handleLoginSubmit(e) {
     }
 
     try {
-        const response = await fetch('/api/login', {
+        const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome: user, senha: pass })
@@ -353,30 +510,31 @@ function updatePermissions() {
         }
     }
 
-    // Dev e Admin têm as mesmas permissões
-    const isAdmin = userRole === 'admin' || userRole === 'dev';
+    // Apenas DEV205-1 pode editar atualizações
+    const isDev = userRole === 'dev';
+    const isAdmin = userRole === 'admin';
     
-    // Mostrar/esconder formulário de atualizações - admin e dev podem editar
+    // Mostrar/esconder formulário de atualizações - APENAS DEV pode editar
     if (formContainer) {
-        if (isAdmin) {
-            formContainer.style.display = 'block';
-        } else {
-            formContainer.style.display = 'none';
-        }
+        formContainer.style.display = isDev ? 'block' : 'none';
     }
 
-    // Mostrar/esconder botões de ação - admin e dev podem deletar/exportar
+    // Mostrar/esconder botões de ação - APENAS DEV pode deletar/exportar
     if (actionsDiv) {
-        if (isAdmin) {
+        if (isDev) {
             actionsDiv.style.display = 'flex';
         } else {
             actionsDiv.style.display = 'none';
         }
     }
 
-    // Remover aviso de admin (agora admin e dev têm as mesmas permissões)
+    // Mostrar aviso quando admin tenta acessar (sem permissão para editar atualizações)
     if (adminWarning) {
-        adminWarning.style.display = 'none';
+        if (isAdmin) {
+            adminWarning.style.display = 'block';
+        } else {
+            adminWarning.style.display = 'none';
+        }
     }
 
     // Liberar banco de dados para admin e dev
@@ -1923,12 +2081,7 @@ async function loadDatabase() {
                                             const inputId = `password-${tableData.tableName}-${idx}-${colIdx}`;
                                             return `
                                                 <td class="password-cell">
-                                                    <div class="password-cell-inner">
-                                                        <input type="password" id="${inputId}" value="${displayVal}" readonly>
-                                                        <button class="toggle-password-btn" onclick="togglePasswordVisibility('${inputId}')" title="Mostrar/ocultar senha">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
+                                                    <input type="password" id="${inputId}" value="${displayVal}" readonly>
                                                 </td>
                                             `;
                                         }
@@ -2011,8 +2164,10 @@ window.clearDatabaseTable = async (tableName) => {
     }
 };
 
-setInterval(() => {
-    if (localStorage.getItem('adminLoggedIn') === 'true') {
-        loadContent();
-    }
-}, 10000);
+// Auto-refresh desabilitado - estava causando conflito na página principal
+// Refresh manual quando o admin quer atualizar
+// setInterval(() => {
+//     if (localStorage.getItem('adminLoggedIn') === 'true') {
+//         loadContent();
+//     }
+// }, 10000);

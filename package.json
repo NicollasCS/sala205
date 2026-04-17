@@ -4,9 +4,10 @@
   "description": "Criado por : Nicollas Cane Seula no dia 24/03/2026 para a turma 205 do Anexo Irmã Maria Teresa",
   "main": "index.js",
   "scripts": {
-    "dev": "node src/server.js",
+    "dev": "node src/server-novo.js",
+    "dev:old": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/server.js",
+    "start": "node src/server-novo.js",
     "reset-db": "node src/reset_database.js"
   },
   "repository": {

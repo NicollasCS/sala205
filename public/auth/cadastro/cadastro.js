@@ -34,7 +34,7 @@ document.getElementById("formCadastro").addEventListener("submit", async functio
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cadastrando...';
     document.querySelector('button[type="submit"]').disabled = true;
 
-    const response = await fetch('/api/cadastro', {
+    const response = await fetch('/api/auth/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, senha: senhaHash }),
