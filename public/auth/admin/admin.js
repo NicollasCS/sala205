@@ -1698,7 +1698,7 @@ function displayLogs(logs) {
     
     // Calculate pagination
     const totalPages = Math.ceil(logs.length / LOGS_PAGE_SIZE);
-    const startIndex = state.logsPage * LOGS_PAGE_SIZE;
+    const startIndex = adminState.logsPage * LOGS_PAGE_SIZE;
     const endIndex = Math.min(startIndex + LOGS_PAGE_SIZE, logs.length);
     const paginatedLogs = logs.slice(startIndex, endIndex);
 
@@ -1734,9 +1734,9 @@ function displayLogs(logs) {
     const currentPageSpan = qs('logs-current-page');
     const totalPagesSpan = qs('logs-total-pages');
 
-    if (prevBtn) prevBtn.disabled = state.logsPage === 0;
-    if (nextBtn) nextBtn.disabled = state.logsPage >= totalPages - 1;
-    if (currentPageSpan) currentPageSpan.textContent = state.logsPage + 1;
+    if (prevBtn) prevBtn.disabled = adminState.logsPage === 0;
+    if (nextBtn) nextBtn.disabled = adminState.logsPage >= totalPages - 1;
+    if (currentPageSpan) currentPageSpan.textContent = adminState.logsPage + 1;
     if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
     
     // Show pagination only if there's more than one page
@@ -1801,7 +1801,7 @@ function escapeHtml(text) {
 
 function filterLogs(tab = 'logs') {
     // Reset pagination when filtering
-    state.logsPage = 0;
+    adminState.logsPage = 0;
 
     // Pegar categorias selecionadas (apenas para a tab logs)
     let selectedCategories = ['CONTAS', 'COMENTÁRIOS']; // Default para tab logs
