@@ -9,6 +9,7 @@ import adminRoutes from './adminRoutes.js';
 import logsRoutes from './logsRoutes.js';
 import databaseRoutes from './databaseRoutes.js';
 import descricaoRoutes from './descricaoRoutes.js';
+import textosRoutes from './textosRoutes.js';
 
 const router = express.Router();
 
@@ -40,6 +41,9 @@ router.use('/database', databaseRoutes);
 
 // Descrição Turma
 router.use('/descricao-turma', descricaoRoutes);
+
+// Textos Página
+router.use('/textos-pagina', textosRoutes);
 
 // Admin e Sistema
 router.use('/admin', adminRoutes);

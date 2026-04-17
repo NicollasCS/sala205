@@ -10,16 +10,13 @@ router.get('/', requireAdmin, usuariosController.listUsers);
 // Renomear usuário (admin)
 router.put('/renomear', requireAdmin, usuariosController.renameUser);
 
-// Deletar usuário (admin)
-router.delete('/', requireAdmin, usuariosController.deleteUser);
-
 // Alterar nome (user)
 router.post('/:id/alterar-nome', usuariosController.alterarNome);
 
 // Alterar senha (user)
 router.post('/:id/alterar-senha', usuariosController.alterarSenha);
 
-// Deletar conta (user)
+// Deletar conta (user - contas comuns apenas)
 router.delete('/:id', usuariosController.deletarConta);
 
 export default router;

@@ -588,14 +588,11 @@ body.admin-open {
     font-weight: 800;
     color: white;
     margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, #ffffff, #f1f5f9);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .login-subtitle {
-    color: rgba(255, 255, 255, 0.82);
+    color: rgba(241, 245, 249, 0.95);
     font-size: 1.05rem;
 }
 
@@ -892,8 +889,40 @@ body.light-mode .mode-toggle-btn {
     border-color: rgba(96, 165, 250, 0.2);
 }
 
-.logout-btn {
+.admin-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     margin-top: auto;
+    width: 100%;
+}
+
+.home-btn {
+    background: rgba(59, 130, 246, 0.14);
+    color: #bfdbfe;
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    padding: 1rem;
+    border-radius: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    transition: all 0.25s ease;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.home-btn i {
+    font-size: 1.2rem;
+}
+
+.home-btn:hover {
+    background: rgba(59, 130, 246, 0.22);
+    transform: translateY(-1px);
+}
+
+.logout-btn {
     background: rgba(239, 68, 68, 0.14);
     color: #fecaca;
     border: 1px solid rgba(239, 68, 68, 0.24);
@@ -3020,4 +3049,130 @@ form {
 #adminPanel input[type="password"]::placeholder,
 #adminPanel textarea::placeholder {
     color: #999999;
+}
+
+/* ============================================
+   EDITAR TEXTOS TAB STYLES
+   ============================================ */
+
+.textos-container {
+    max-width: 900px;
+    margin-bottom: 2rem;
+}
+
+.texto-group {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 4px solid var(--primary);
+    border-radius: 12px;
+}
+
+.texto-group label {
+    display: block;
+    margin-bottom: 0.6rem;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.texto-group label i {
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.texto-group input[type="text"],
+.texto-group textarea {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    color: #000000;
+    background: white;
+    transition: all 0.25s ease;
+    resize: vertical;
+}
+
+.texto-group textarea {
+    min-height: 100px;
+}
+
+.texto-group input[type="text"]::placeholder,
+.texto-group textarea::placeholder {
+    color: #999999;
+}
+
+.texto-group input[type="text"]:focus,
+.texto-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.texto-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.texto-section-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 2.5rem 0 1.5rem 0;
+    padding: 1rem 0;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.texto-section-divider i {
+    color: var(--primary);
+    font-size: 1.3rem;
+}
+
+.btn-preview {
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 0.9rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.btn-preview:hover {
+    background: #7c3aed;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(139, 92, 246, 0.3);
+}
+
+.btn-preview:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   MODO CLARO - TEXTOS
+   ============================================ */
+
+body.light-mode .texto-group {
+    background: rgba(59, 130, 246, 0.05);
+    border-left-color: #3b82f6;
+}
+
+body.light-mode .texto-section-divider {
+    border-bottom-color: #e2e8f0;
+    color: #0f172a;
 }

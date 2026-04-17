@@ -82,41 +82,6 @@ export async function renameUser(req, res) {
 }
 
 /**
- * Deletar usuário
- */
-export async function deleteUser(req, res) {
-    const { id, nome } = req.body;
-
-    if (!id || !nome) {
-        return res.status(400).json({ error: 'ID e nome do usuário são obrigatórios.' });
-    }
-
-    if (isProtectedAccount(nome)) {
-        return res.status(403).json({ error: 'Esta conta não pode ser excluída. É uma conta de sistema.' });
-    }
-
-    try {
-        await supabase
-            .from('comentarios')
-            .delete()
-            .eq('autor', nome);
-
-        await supabase
-            .from('usuarios')
-            .delete()
-            .eq('id', id)
-            .eq('nome', nome);
-
-        await createLog('CONTAS', 'EXCLUSÃO DE CONTAS', `Conta deletada: ${nome}`);
-
-        res.json({ message: 'Sua conta e todos os seus comentários foram excluídos com sucesso.' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao excluir a conta.' });
-    }
-}
-
-/**
  * Alterar nome do usuário
  */
 export async function alterarNome(req, res) {
@@ -207,7 +172,7 @@ export async function alterarSenha(req, res) {
 }
 
 /**
- * Deletar conta do usuário
+ * Deletar conta do usuário (apenas para contas comuns)
  */
 export async function deletarConta(req, res) {
     const { id } = req.params;
@@ -226,26 +191,26 @@ export async function deletarConta(req, res) {
 
         if (errorCheck) throw errorCheck;
 
-        const senhaHashEnviada = require('crypto').createHash('md5').update(senha).digest('hex');
-        const senhaValida = usuario.senha === senhaHashEnviada;
-        
-        if (!senhaValida) {
+        // Verificar se é conta protegida
+        if (isProtectedAccount(usuario.nome)) {
+            return res.status(403).json({ error: 'Não é permitido deletar contas de sistema' });
+        }
+
+        if (usuario.senha !== senha) {
             return res.status(401).json({ error: 'Senha incorreta' });
         }
 
-        if (isProtectedAccount(usuario.nome)) {
-            return res.status(403).json({ error: 'Não é permitido deletar conta admin' });
-        }
-
-        await supabase
-            .from('usuarios')
-            .delete()
-            .eq('id', id);
-
+        // Deletar comentários primeiro
         await supabase
             .from('comentarios')
             .delete()
             .eq('autor', usuario.nome);
+
+        // Depois deletar a conta
+        await supabase
+            .from('usuarios')
+            .delete()
+            .eq('id', id);
 
         await createLog('CONTAS', 'EXCLUSÃO DE CONTAS', `Conta deletada: ${usuario.nome}`);
 

@@ -14,6 +14,17 @@
     <link rel="apple-touch-icon" href="./image/icon.png">
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner"></i>
+            </div>
+            <h2>Sala 205</h2>
+            <p>Carregando a comunidade...</p>
+        </div>
+    </div>
+
     <!-- Navigation Header -->
     <header class="navbar">
         <div class="navbar-container">
@@ -25,6 +36,9 @@
                 <a href="#about" class="nav-link">Sobre</a>
                 <a href="#galeria" class="nav-link">Galeria</a>
                 <a href="#contato" class="nav-link">Contato</a>
+                <button id="btnCalendario" class="nav-link" style="background: none; border: none; cursor: pointer; color: inherit; font-size: 1rem; display: none;" onclick="abrirCalendarioModal()" title="Calendário da turma">
+                    <i class="fas fa-calendar-alt"></i> Calendário
+                </button>
             </nav>
             <div class="navbar-actions">
                 <button class="theme-toggle-btn" onclick="toggleDarkMode()" title="Alternar modo escuro/claro">
@@ -39,6 +53,9 @@
                 </div>
                 <div id="usuarioContainer" class="usuario-container" style="display: none;">
                     <span id="nomeUsuarioNav" class="nome-usuario">Olá, Usuário</span>
+                    <a href="/auth/admin/admin.html" id="btnPainelAdminNav" class="btn-painel-admin-nav" style="display: none;" title="Acessar Painel Admin">
+                        <i class="fas fa-crown"></i>
+                    </a>
                     <button id="botaoSettings" class="btn-settings" onclick="toggleSettingsMenu()" title="Configurações">
                         <i class="fas fa-cog"></i>
                     </button>
@@ -71,15 +88,15 @@
 
     <!-- Hero Section -->
     <section id="hero" class="hero">
-        <div class="hero-background">
+        <div class="hero-background" style="background-image: url('/image/anexoImagem.png'); background-size: cover; background-position: center; background-attachment: fixed;">
             <div class="hero-overlay"></div>
         </div>
         <div class="hero-content">
-            <h2 class="hero-title">Sala 205 - Anexo</h2>
-            <p class="hero-subtitle">Irmã Maria Teresa (EEBIMT)</p>
-            <p class="hero-description">Conheça a história, memórias e projetos da nossa turma</p>
-            <button class="btn-primary" onclick="document.getElementById('about').scrollIntoView({behavior: 'smooth'})">
-                Explorar <i class="fas fa-arrow-down"></i>
+            <h2 class="hero-title" id="heroTitle">Sala 205 - Anexo</h2>
+            <p class="hero-subtitle" id="heroSubtitle">Irmã Maria Teresa (EEBIMT)</p>
+            <p class="hero-description" id="heroDescription">Conheça a história, memórias e projetos da nossa turma</p>
+            <button class="btn-primary" id="heroBtn" onclick="document.getElementById('about').scrollIntoView({behavior: 'smooth'})">
+                <span id="heroBtnText">Explorar</span> <i class="fas fa-arrow-down"></i>
             </button>
         </div>
     </section>
@@ -131,8 +148,8 @@
     <section id="galeria" class="galeria-section">
         <div class="container">
             <div class="section-header">
-                <h2>Galeria de Fotos</h2>
-                <p>Momentos especiais da Sala 205</p>
+                <h2 id="galeriaTitle">Galeria de Fotos</h2>
+                <p id="galeriaSubtitle">Momentos especiais da Sala 205</p>
                 <div class="header-line"></div>
             </div>
             <div id="galeriaContainer" class="galeria-grid">
@@ -153,25 +170,25 @@
     <section id="contato" class="contact-section">
         <div class="container">
             <div class="section-header">
-                <h2>Participe da Comunidade</h2>
-                <p>Conecte-se com seus colegas de turma</p>
+                <h2 id="comunidadeTitle">Participe da Comunidade</h2>
+                <p id="comunidadeSubtitle">Conecte-se com seus colegas de turma</p>
                 <div class="header-line"></div>
             </div>
             <div class="contact-content">
                 <div class="contact-card">
                     <i class="fas fa-comments"></i>
                     <h3>Comentários</h3>
-                    <p>Deixe mensagens e interaja com a turma</p>
+                    <p id="textoComentarios">Deixe mensagens e interaja com a turma</p>
                 </div>
                 <div class="contact-card">
                     <i class="fas fa-lock"></i>
                     <h3>Acesso Seguro</h3>
-                    <p>Faça login para acesso completo</p>
+                    <p id="textoSeguranca">Faça login para acesso completo</p>
                 </div>
                 <div class="contact-card">
                     <i class="fas fa-user-plus"></i>
                     <h3>Cadastre-se</h3>
-                    <p>Crie sua conta e faça parte</p>
+                    <p id="textoCadastro">Crie sua conta e faça parte</p>
                 </div>
             </div>
             <div id="botoesLoginContato" class="contact-buttons">
@@ -196,6 +213,21 @@
                 <i class="fas fa-user-plus"></i> Não tenho uma conta
             </button>
             <button onclick="fecharPopup()" class="buttonPopup btn-outline">Mais tarde</button>
+        </div>
+    </div>
+
+    <!-- Calendário Modal -->
+    <div id="calendarioModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-calendar-alt"></i> Calendário da Turma</h2>
+                <button class="modal-close" onclick="fecharCalendarioModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: inherit;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="calendarioConteudo" style="padding: 1.5rem; max-height: 400px; overflow-y: auto;">
+                <p style="text-align: center; color: #666;">Carregando eventos...</p>
+            </div>
         </div>
     </div>
 

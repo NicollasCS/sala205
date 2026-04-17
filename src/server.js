@@ -8,6 +8,7 @@ import multer from 'multer';
 import busboy from 'busboy';
 import fs from 'fs';
 import crypto from 'crypto';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ const GALERIA_PAGE_SIZE = 5;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Supabase Client
@@ -1081,42 +1083,6 @@ app.put('/api/site-status', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message || 'Erro ao salvar status do site' });
-    }
-});
-
-// Rota para excluir usuário e seus comentários
-app.delete('/api/usuarios', async (req, res) => {
-    const { id, nome } = req.body;
-
-    if (!id || !nome) {
-        return res.status(400).json({ error: 'ID e nome do usuário são obrigatórios.' });
-    }
-
-    // Contas protegidas que não podem ser excluídas
-    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
-    if (protectedAccounts.includes(nome)) {
-        return res.status(403).json({ error: 'Esta conta não pode ser excluída. É uma conta de sistema.' });
-    }
-
-    try {
-        await supabase
-            .from('comentarios')
-            .delete()
-            .eq('autor', nome);
-
-        await supabase
-            .from('usuarios')
-            .delete()
-            .eq('id', id)
-            .eq('nome', nome);
-
-        // Log: Exclusão de Conta
-        await createLog('CONTAS', 'EXCLUSÃO DE CONTAS', `Conta deletada: ${nome}`);
-
-        res.json({ message: 'Sua conta e todos os seus comentários foram excluídos com sucesso.' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao excluir a conta.' });
     }
 });
 

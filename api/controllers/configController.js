@@ -229,7 +229,7 @@ function handleDeleteCalendarioEvent(supabase, createLog) {
 }
 
 /**
- * DELETE /api/usuarios - Deletar usuário e seus comentários
+ * DELETE /api/usuarios - Deletar usuário (admin apenas, contas comuns)
  */
 function handleDeleteUsuario(supabase, createLog) {
     return async (req, res) => {
@@ -241,7 +241,7 @@ function handleDeleteUsuario(supabase, createLog) {
 
         const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
         if (protectedAccounts.includes(nome)) {
-            return res.status(403).json({ error: 'Esta conta não pode ser excluída. É uma conta de sistema.' });
+            return res.status(403).json({ error: 'Contas de sistema não podem ser deletadas.' });
         }
 
         try {
@@ -260,7 +260,7 @@ function handleDeleteUsuario(supabase, createLog) {
                 await createLog('CONTAS', 'EXCLUSÃO DE CONTAS', `Conta deletada: ${nome}`);
             }
 
-            res.json({ message: 'Sua conta e todos os seus comentários foram excluídos com sucesso.' });
+            res.json({ message: 'Conta deletada com sucesso.' });
         } catch (error) {
             console.error(error);
             res.status(500).json({ error: 'Erro ao excluir a conta.' });

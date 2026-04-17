@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -21,6 +22,7 @@ const app = express();
 
 // ========== MIDDLEWARE GLOBAL ==========
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));

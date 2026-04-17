@@ -1,4 +1,5 @@
 import { ADMIN_TOKEN, DEV_TOKEN, ROOT_TOKEN } from '../config/constants.js';
+import { validateAdminSession } from '../controllers/authController.js';
 
 // ========== MIDDLEWARES DE AUTENTICAÇÃO ==========
 
@@ -26,23 +27,58 @@ export function isRootAdminToken(req) {
 }
 
 /**
- * Middleware para verificar admin
+ * Middleware para verificar admin com AMBAS as formas de autenticação
+ * Aceita: token nos headers OU cookie de sessão válido
  */
-export function requireAdmin(req, res, next) {
-    if (!isAdminToken(req)) {
-        return res.status(403).json({ error: 'Acesso negado. Administrador requerido.' });
+export function requireAdminFlexible(req, res, next) {
+    // Tentar autenticação por token (headers)
+    if (isAdminToken(req)) {
+        return next();
     }
-    next();
+    
+    // Tentar autenticação por sessão (cookie)
+    const token = req.cookies.adminSession;
+    if (token) {
+        const session = validateAdminSession(token);
+        if (session) {
+            req.adminSession = session;
+            return next();
+        }
+        res.clearCookie('adminSession');
+    }
+    
+    return res.status(401).json({ error: 'Não autenticado. Token ou sessão inválida.' });
 }
+
+/**
+ * Middleware para verificar admin com AMBAS as formas de autenticação
+ * Versão antiga (mantida como alias)
+ */
+export const requireAdmin = requireAdminFlexible;
 
 /**
  * Middleware para verificar dev
  */
 export function requireDev(req, res, next) {
-    if (!isDevToken(req)) {
-        return res.status(403).json({ error: 'Acesso negado. Dev requerido.' });
+    // Tentar autenticação por token (headers)
+    if (isDevToken(req)) {
+        return next();
     }
-    next();
+    
+    // Tentar autenticação por sessão (cookie)
+    const token = req.cookies.adminSession;
+    if (token) {
+        const session = validateAdminSession(token);
+        if (session && session.role === 'dev') {
+            req.adminSession = session;
+            return next();
+        }
+        if (session) {
+            res.clearCookie('adminSession');
+        }
+    }
+    
+    return res.status(401).json({ error: 'Acesso negado. Dev requerido.' });
 }
 
 /**
@@ -52,6 +88,27 @@ export function requireRoot(req, res, next) {
     if (!isRootAdminToken(req)) {
         return res.status(403).json({ error: 'Acesso negado. Root admin requerido.' });
     }
+    next();
+}
+
+/**
+ * Middleware para verificar sessão HttpOnly (admin)
+ */
+export function requireAdminSession(req, res, next) {
+    const token = req.cookies.adminSession;
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Não autenticado. Faça login novamente.' });
+    }
+    
+    const session = validateAdminSession(token);
+    if (!session) {
+        res.clearCookie('adminSession');
+        return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+    }
+    
+    // Adicionar dados da sessão ao request para uso posterior
+    req.adminSession = session;
     next();
 }
 
