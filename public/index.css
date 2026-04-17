@@ -343,6 +343,35 @@ section {
     text-align: center;
     border: 1px solid var(--border);
     transition: var(--transition);
+    position: relative;
+}
+
+.feature-card.hidden {
+    display: none;
+}
+
+.btn-edit-bloco {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-edit-bloco:hover {
+    background: var(--primary);
+    color: white;
+    transform: scale(1.1);
 }
 
 .feature-card:hover {

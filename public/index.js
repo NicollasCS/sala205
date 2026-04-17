@@ -450,6 +450,9 @@ function atualizarStatusLogin() {
             }
         };
     }
+    
+    // Ajustar grid de blocos
+    ajustarGridAbout();
 }
 
 // ============================================
@@ -757,13 +760,17 @@ function atualizarMenuAdmin() {
     const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
     const opAdmin = document.getElementById('opAdmin');
     const temaBtn = document.querySelector('.theme-selector-btn');
+    const btnsBlocos = document.querySelectorAll('.btn-edit-bloco');
     
     if (usuario && (usuario.tipoUsuario === 'admin' || usuario.tipoUsuario === 'dev' || usuario.usuario === 'administrator_turma205')) {
         if (opAdmin) {
             opAdmin.style.display = 'flex';
         }
+        // Mostrar botões de editar blocos
+        btnsBlocos.forEach(btn => btn.style.display = 'flex');
     } else if (opAdmin) {
         opAdmin.style.display = 'none';
+        btnsBlocos.forEach(btn => btn.style.display = 'none');
     }
     
     // Mostrar seletor de temas no navbar quando logado
@@ -772,6 +779,60 @@ function atualizarMenuAdmin() {
     } else if (temaBtn) {
         temaBtn.style.display = 'none';
     }
+}
+
+// ============================================
+// GERENCIAR BLOCOS (ADMIN)
+// ============================================
+
+function carregarEstadoBlocos() {
+    const blocosPersistidos = JSON.parse(localStorage.getItem('blocosOcultos') || '{}');
+    Object.keys(blocosPersistidos).forEach(bloco => {
+        if (blocosPersistidos[bloco]) {
+            const card = document.getElementById(`card-${bloco}`);
+            if (card) {
+                card.classList.add('hidden');
+            }
+        }
+    });
+    
+    // Ajustar grid da seção About
+    ajustarGridAbout();
+}
+
+function ajustarGridAbout() {
+    const aboutFeatures = document.getElementById('aboutFeatures');
+    if (!aboutFeatures) return;
+    
+    const cardsVisiveis = aboutFeatures.querySelectorAll('.feature-card:not(.hidden)').length;
+    
+    if (cardsVisiveis <= 1) {
+        aboutFeatures.style.display = 'flex';
+        aboutFeatures.style.justifyContent = 'center';
+    } else {
+        aboutFeatures.style.display = 'grid';
+    }
+}
+
+window.editarBloco = function(bloco) {
+    const card = document.getElementById(`card-${bloco}`);
+    if (!card) return;
+    
+    const blocosPersistidos = JSON.parse(localStorage.getItem('blocosOcultos') || '{}');
+    
+    // Alternar visibilidade
+    blocosPersistidos[bloco] = !blocosPersistidos[bloco];
+    localStorage.setItem('blocosOcultos', JSON.stringify(blocosPersistidos));
+    
+    // Atualizar UI
+    if (blocosPersistidos[bloco]) {
+        card.classList.add('hidden');
+    } else {
+        card.classList.remove('hidden');
+    }
+    
+    // Ajustar grid
+    ajustarGridAbout();
 }
 
 // ============================================
@@ -795,6 +856,7 @@ window.addEventListener('DOMContentLoaded', function() {
     // Initialize components
     atualizarStatusLogin();
     atualizarMenuAdmin();
+    carregarEstadoBlocos();
     initPopupDrag();
     initSidebar();
     initCharCounter();
