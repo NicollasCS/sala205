@@ -1036,7 +1036,7 @@ async function atualizarComentariosGaleria(galeriaId) {
           <div style="flex: 1; min-width: 0;">
             <div style="font-weight: 600; color: #60a5fa; font-size: 0.9rem;">${c.autor}</div>
             <div style="color: #e5e7eb; margin-top: 0.25rem; word-break: break-word;">${c.texto}</div>
-            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">${new Date(c.criado).toLocaleDateString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">${new Date(c.criado).toLocaleString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
           </div>
           ${podeDelete ? `<button onclick="(async () => { if (await deletarComentarioGaleria(${c.id})) { await atualizarComentariosGaleria(${galeriaId}); } })()" style="background: rgba(239,68,68,0.2); color: #fca5a5; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-trash"></i></button>` : ''}
         </div>
