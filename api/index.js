@@ -254,5 +254,14 @@ app.use((req, res) => {
     });
 });
 
+// ===== MIDDLEWARE PARA REMOVAR /api DO PATH =====
+app.use((req, res, next) => {
+    // Se a URL começa com /api, remover /api antes de processar
+    if (req.url.startsWith('/api')) {
+        req.url = req.url.slice(4);
+    }
+    next();
+});
+
 // ===== EXPORTAR PARA VERCEL =====
 export default app;
