@@ -500,8 +500,9 @@ async function saveDescricao() {
             throw new Error(data.error || `Erro ${res.status}: ${res.statusText}`);
         }
 
-        await loadDescricao();
         alert('Descrição salva com sucesso!');
+        // Recarregar depois do alert para evitar limpeza enquanto usuário digita
+        setTimeout(loadDescricao, 500);
     } catch (e) {
         console.error('Erro ao salvar descrição:', e);
         alert(`Erro: ${e.message}`);
@@ -561,8 +562,8 @@ window.togglePin = async (id) => {
 
 async function loadUsers() {
     try {
-        const res = await apiFetch('/api/usuarios', { admin: false });
-        if (!res.ok) throw new Error('Falha ao buscar usuários');
+        const res = await apiFetch('/api/usuarios');
+        if (!res.ok) throw new Error(`Falha ao buscar usuários (${res.status})`);
 
         const users = await res.json();
         const container = qs('users-list');

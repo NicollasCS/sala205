@@ -1171,6 +1171,12 @@ body.light-mode .main-content {
     font-weight: 700;
 }
 
+@media (prefers-color-scheme: dark) {
+    .pagination-info {
+        color: #ffffff;
+    }
+}
+
 .modal {
     display: none;
     position: fixed;
