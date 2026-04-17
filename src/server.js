@@ -460,7 +460,7 @@ app.post('/api/login', async (req, res) => {
 
         const { data: user, error } = await supabase
             .from('usuarios')
-            .select('*')
+            .select('id, nome, senha')
             .eq('nome', nome)
             .limit(1)
             .single();
