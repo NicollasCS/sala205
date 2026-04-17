@@ -4,16 +4,31 @@
 
 ### Passo 1: Criar as Tabelas no Supabase
 
+Se você está começando do ZERO (sem tabelas criadas ainda):
+
 1. **Acesse seu projeto Supabase**: https://supabase.com/dashboard
 2. **Navegue para "SQL Editor"** (painel esquerdo)
 3. **Clique em "New Query"** ou **"New SQL snippet"**
-4. **⚠️ IMPORTANTE: Copie TODO o conteúdo de `SUPABASE_SETUP_SIMPLES.sql`** (NÃO use o SUPABASE_SETUP.sql)
+4. **Copie TODO o conteúdo de `SUPABASE_SETUP_SIMPLES.sql`**
 5. **Cole no editor do Supabase** e execute (botão "Run" ou Ctrl+Enter)
-6. **Aguarde a conclusão** (você deve ver "Success" em verde)
+6. **Aguarde a conclusão**
 
-**💡 Se receber erro sobre tabela já existente:**
-- Execute em separado apenas o SQL para as tabelas que faltam
-- Ou limpe o Supabase e execute do zero
+### Passo 2: Se Receber Erro "column does not exist"
+
+Se a tabela `usuarios` JÁ EXISTE mas está faltando colunas:
+
+1. Abra uma nova query no SQL Editor
+2. **Copie o conteúdo de `SUPABASE_ADD_COLUMNS.sql`**
+3. Execute (isso adiciona as colunas faltantes)
+4. Quando terminar, execute também `SUPABASE_INSERT_DATA.sql`
+
+### Passo 3: Inserir Dados Iniciais
+
+Se as tabelas foram criadas mas estão vazias:
+
+1. Abra uma nova query no SQL Editor
+2. **Copie o conteúdo de `SUPABASE_INSERT_DATA.sql`**
+3. Execute (cria os usuários e descrição padrão)
 
 ### Passo 2: Verificar se Funcionou
 

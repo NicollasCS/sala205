@@ -125,9 +125,12 @@ ALTER TABLE IF EXISTS logs DISABLE ROW LEVEL SECURITY;
 -- ============================================
 -- 📝 DADOS INICIAIS (OPCIONAL)
 -- ============================================
--- Execute APENAS se as tabelas foram criadas agora e estão vazias
 
--- Inserir usuários (senhas em MD5)
+-- ⚠️ IMPORTANTE: Se a tabela usuarios já existe, execute PRIMEIRO:
+-- ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+-- ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
+
+-- Depois, inserir usuários (senhas em MD5) APENAS se estão vazios
 INSERT INTO usuarios (nome, senha, is_admin, role) VALUES 
     ('administrador_turma205-1', '1d1c2a030f7fef21cba99a76eb8e5e8e', true, 'root'),
     ('aluno205-1', 'e2a29b79619dd45c26a6c7ff69ce94d4', false, 'user'),
