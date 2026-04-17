@@ -23,11 +23,11 @@ CREATE INDEX IF NOT EXISTS idx_usuarios_created ON usuarios(created DESC);
 -- ============================================
 CREATE TABLE IF NOT EXISTS calendario (
     id BIGSERIAL PRIMARY KEY,
-    data DATE NOT NULL,
     titulo TEXT NOT NULL,
     descricao TEXT,
-    created TIMESTAMP DEFAULT now(),
-    updated TIMESTAMP DEFAULT now()
+    data DATE NOT NULL,
+    tipo TEXT DEFAULT 'Aviso',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_calendario_data ON calendario(data);
@@ -39,8 +39,9 @@ CREATE TABLE IF NOT EXISTS galeria (
     id BIGSERIAL PRIMARY KEY,
     titulo TEXT NOT NULL,
     descricao TEXT,
-    tipo_midia TEXT DEFAULT 'photo', -- 'photo', 'video', 'document'
-    storage_key TEXT NOT NULL,
+    url TEXT,
+    data DATE,
+    tipo_midia TEXT DEFAULT 'photo',
     position INT DEFAULT 0,
     created TIMESTAMP DEFAULT now(),
     updated TIMESTAMP DEFAULT now()
@@ -96,7 +97,7 @@ CREATE TABLE IF NOT EXISTS descricao_turma (
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT,
-    updated TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 -- ============================================
@@ -122,16 +123,13 @@ CREATE INDEX IF NOT EXISTS idx_admin_requests_user ON admin_requests(requested_u
 CREATE TABLE IF NOT EXISTS logs (
     id BIGSERIAL PRIMARY KEY,
     categoria TEXT NOT NULL,
-    acao TEXT NOT NULL,
+    subcategoria TEXT NOT NULL,
     detalhes TEXT,
-    usuario TEXT,
-    ip_address TEXT,
-    created_at TIMESTAMP DEFAULT now()
+    timestamp TIMESTAMP DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_logs_categoria ON logs(categoria);
-CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_logs_usuario ON logs(usuario);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
 
 -- ============================================
 -- 🔐 ROW LEVEL SECURITY (OPCIONAL)
