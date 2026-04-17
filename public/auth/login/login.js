@@ -1,4 +1,56 @@
-// Login JS - Estilo Moderno com MD5
+// ============================================
+// THEME SYNCHRONIZATION
+// ============================================
+
+function salvarTema(tema) {
+    localStorage.setItem('tema', tema);
+    aplicarTema(tema);
+}
+
+function aplicarTema(tema) {
+    document.body.classList.remove('theme-green', 'theme-blue');
+    if (tema === 'green') {
+        document.body.classList.add('theme-green');
+    }
+}
+
+function carregarTema() {
+    const temaArmazenado = localStorage.getItem('tema') || 'green';
+    aplicarTema(temaArmazenado);
+}
+
+// Dark mode
+function carregarModoDark() {
+    const modoDarkArmazenado = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    let shouldBeDark = prefersDark;
+    if (modoDarkArmazenado !== null) {
+        shouldBeDark = modoDarkArmazenado === 'true';
+    }
+    
+    aplicarModoDark(shouldBeDark);
+}
+
+function aplicarModoDark(isDark) {
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+    } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    carregarTema();
+    carregarModoDark();
+});
+
+// ============================================
+// LOGIN FORM
+// ============================================
 document.getElementById("formLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
 
@@ -23,7 +75,7 @@ document.getElementById("formLogin").addEventListener("submit", async function (
     document.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
     document.querySelector('button[type="submit"]').disabled = true;
 
-    const response = await fetch('/api/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, senha: senhaHash }),

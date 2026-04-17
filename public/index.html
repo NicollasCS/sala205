@@ -3,125 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>205 - Anexo</title>
+    <title>Sala 205 - Anexo - Irmã Maria Teresa</title>
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="description" content="Comunidade da Sala 205 - Irmã Maria Teresa (EEBIMT). Conheça mais sobre nossa turma, galeria de fotos e conecte-se com colegas.">
+    <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <script src="index.js" defer></script>
     <link rel="shortcut icon" href="./image/icon.png" type="image/x-icon">
+    <link rel="apple-touch-icon" href="./image/icon.png">
 </head>
 <body>
-
-    <section id="secaoTopo" class="center texto">
-        <div id="divTopo">
-            <h1>Sala 205 - Anexo</h1>
-            <p>Irmã Maria Teresa (EEBIMT)</p>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner"></i>
+            </div>
+            <h2>Sala 205</h2>
+            <p>Carregando a comunidade...</p>
         </div>
-        <button type="button" id="botaoLogin">Login</button>
-    </section>
-    <div class="container center">
-        <button type="button" id="conhecer" onclick="document.getElementById('secaoGaleria').scrollIntoView({behavior: 'smooth'})">Conheça mais sobre</button>
     </div>
 
-    <!-- Seção de Descrição da Turma -->
-    <section id="secaoTurma" class="turma-section">
+    <!-- Navigation Header -->
+    <header class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <h1>Sala 205</h1>
+            </div>
+            <nav class="navbar-menu">
+                <a href="#hero" class="nav-link">Início</a>
+                <a href="#about" class="nav-link">Sobre</a>
+                <a href="#galeria" class="nav-link">Galeria</a>
+                <a href="#contato" class="nav-link">Contato</a>
+                <button id="btnCalendario" class="nav-link" style="background: none; border: none; cursor: pointer; color: inherit; font-size: 1rem; display: none;" onclick="abrirCalendarioModal()" title="Calendário da turma">
+                    <i class="fas fa-calendar-alt"></i> Calendário
+                </button>
+            </nav>
+            <div class="navbar-actions">
+                <button class="theme-toggle-btn" onclick="toggleDarkMode()" title="Alternar modo escuro/claro">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="theme-selector-btn" onclick="toggleTemaSelector()" title="Selecionar tema (Azul ou Verde)" style="display: none;">
+                    <i class="fas fa-palette"></i>
+                </button>
+                <div id="temaSelector" class="tema-selector" style="display: none;">
+                    <button onclick="mudarTema('azul')" class="tema-opt azul-opt"><i class="fas fa-circle" style="color: #3b82f6;"></i> Azul</button>
+                    <button onclick="mudarTema('verde')" class="tema-opt verde-opt"><i class="fas fa-circle" style="color: #10b981;"></i> Verde</button>
+                </div>
+                <div id="usuarioContainer" class="usuario-container" style="display: none;">
+                    <span id="nomeUsuarioNav" class="nome-usuario">Olá, Usuário</span>
+                    <a href="/auth/admin/admin.html" id="btnPainelAdminNav" class="btn-painel-admin-nav" style="display: none;" title="Acessar Painel Admin">
+                        <i class="fas fa-crown"></i>
+                    </a>
+                    <button id="botaoSettings" class="btn-settings" onclick="toggleSettingsMenu()" title="Configurações">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <div id="settingsMenu" class="settings-menu">
+                        <a href="#" onclick="abrirMudarTema(event)" class="settings-item" id="opMudarTema">
+                            <i class="fas fa-palette"></i> Mudar tema
+                        </a>
+                        <a href="/auth/admin/admin.html" class="settings-item" id="opAdmin" style="display: none;">
+                            <i class="fas fa-crown"></i> Painel Admin
+                        </a>
+                        <a href="#" onclick="abrirPolitica(event)" class="settings-item">
+                            <i class="fas fa-file-contract"></i> Política de privacidade
+                        </a>
+                        <a href="#" onclick="abrirTermos(event)" class="settings-item">
+                            <i class="fas fa-scroll"></i> Termos de uso
+                        </a>
+                        <hr class="settings-divider">
+                        <a href="#" onclick="abrirDeleteConta(event)" class="settings-item settings-delete">
+                            <i class="fas fa-trash"></i> Excluir conta
+                        </a>
+                        <a href="#" onclick="fazerLogout(event)" class="settings-item settings-logout">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+                <button id="botaoLogin" class="btn-login">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero">
+        <div class="hero-background" style="background-image: url('/image/anexoImagem.png'); background-size: cover; background-position: center; background-attachment: fixed;">
+            <div class="hero-overlay"></div>
+        </div>
+        <div class="hero-content">
+            <h2 class="hero-title" id="heroTitle">Sala 205 - Anexo</h2>
+            <p class="hero-subtitle" id="heroSubtitle">Irmã Maria Teresa (EEBIMT)</p>
+            <p class="hero-description" id="heroDescription">Conheça a história, memórias e projetos da nossa turma</p>
+            <button class="btn-primary" id="heroBtn" onclick="document.getElementById('about').scrollIntoView({behavior: 'smooth'})">
+                <span id="heroBtnText">Explorar</span> <i class="fas fa-arrow-down"></i>
+            </button>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about-section">
         <div class="container">
-            <div class="turma-content">
+            <div class="section-header">
                 <h2>Sobre a Sala 205</h2>
-                <div id="descricaoTurma" class="turma-descricao">
-                    <!-- Descrição será carregada dinamicamente -->
-                    Carregando informações da turma...
+                <div class="header-line"></div>
+            </div>
+            <div class="about-content">
+                <div class="about-text">
+                    <div id="descricaoTurma" class="turma-descricao">
+                        Carregando informações da turma...
+                    </div>
+                </div>
+                <div class="about-features" id="aboutFeatures">
+                    <div class="feature-card" id="card-educacao" data-bloco="educacao">
+                        <button class="btn-edit-bloco admin-only" onclick="editarBloco('educacao')" title="Editar/Ocultar" style="display: none;">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <i class="fas fa-graduation-cap"></i>
+                        <h3>Educação</h3>
+                        <p>Aprendizado colaborativo</p>
+                    </div>
+                    <div class="feature-card" id="card-memorias" data-bloco="memorias">
+                        <button class="btn-edit-bloco admin-only" onclick="editarBloco('memorias')" title="Editar/Ocultar" style="display: none;">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <i class="fas fa-camera"></i>
+                        <h3>Memórias</h3>
+                        <p>Momentos inesquecíveis</p>
+                    </div>
+                    <div class="feature-card" id="card-comunidade" data-bloco="comunidade">
+                        <button class="btn-edit-bloco admin-only" onclick="editarBloco('comunidade')" title="Editar/Ocultar" style="display: none;">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <i class="fas fa-users"></i>
+                        <h3>Comunidade</h3>
+                        <p>Conexão entre alunos</p>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="secaoGaleria" class="galeria-section">
+    <!-- Gallery Section -->
+    <section id="galeria" class="galeria-section">
         <div class="container">
-            <h2>Galeria da Sala 205</h2>
+            <div class="section-header">
+                <h2 id="galeriaTitle">Galeria de Fotos</h2>
+                <p id="galeriaSubtitle">Momentos especiais da Sala 205</p>
+                <div class="header-line"></div>
+            </div>
             <div id="galeriaContainer" class="galeria-grid">
                 <!-- Cards de galeria serão carregados aqui -->
             </div>
             <div id="galeriaPagination" class="pagination-container" style="display: none;">
                 <button id="galeriaPrevBtn" class="pagination-btn" onclick="carregarPaginaAnteriorGaleria()" style="display: none;">
-                    <i class="fas fa-arrow-left"></i> Página anterior
+                    <i class="fas fa-arrow-left"></i> Anterior
                 </button>
                 <button id="galeriaNextBtn" class="pagination-btn" onclick="carregarProximaPaginaGaleria()">
-                    <i class="fas fa-arrow-right"></i> Próxima página
+                    Próxima <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
         </div>
     </section>
 
+    <!-- Contact Section -->
+    <section id="contato" class="contact-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 id="comunidadeTitle">Participe da Comunidade</h2>
+                <p id="comunidadeSubtitle">Conecte-se com seus colegas de turma</p>
+                <div class="header-line"></div>
+            </div>
+            <div class="contact-content">
+                <div class="contact-card">
+                    <i class="fas fa-comments"></i>
+                    <h3>Comentários</h3>
+                    <p id="textoComentarios">Deixe mensagens e interaja com a turma</p>
+                </div>
+                <div class="contact-card">
+                    <i class="fas fa-lock"></i>
+                    <h3>Acesso Seguro</h3>
+                    <p id="textoSeguranca">Faça login para acesso completo</p>
+                </div>
+                <div class="contact-card">
+                    <i class="fas fa-user-plus"></i>
+                    <h3>Cadastre-se</h3>
+                    <p id="textoCadastro">Crie sua conta e faça parte</p>
+                </div>
+            </div>
+            <div id="botoesLoginContato" class="contact-buttons">
+                <button onclick="logar()" class="btn-primary">Já tenho uma conta</button>
+                <button onclick="criarConta()" class="btn-secondary">Criar nova conta</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login Popup -->
     <div id="popup" class="popup">
-        <div class="popup-content">
-            <h2>Faça seu login</h2>
-    
-            <button onclick="logar()" class="buttonPopup">Já tenho uma conta</button>
-            <button onclick="criarConta()" class="buttonPopup">Não tenho uma conta</button>
-            <button onclick="fecharPopup()" class="buttonPopup">Mais tarde</button>
+        <div class="popup-content" id="popupContent">
+            <button class="popup-close" onclick="fecharPopup()">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2>Faça seu Login</h2>
+            <p>Acesse sua conta para participar da comunidade</p>
+            <button onclick="logar()" class="buttonPopup">
+                <i class="fas fa-sign-in-alt"></i> Já tenho uma conta
+            </button>
+            <button onclick="criarConta()" class="buttonPopup">
+                <i class="fas fa-user-plus"></i> Não tenho uma conta
+            </button>
+            <button onclick="fecharPopup()" class="buttonPopup btn-outline">Mais tarde</button>
         </div>
     </div>
 
-    <!-- Modal de Configurações -->
-
-
-    <section id="secao2">
-        <div class="container divComentarios">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2>Comentários:</h2>
-                <button id="closeCommentsBtn" class="close-comments-btn" title="Fechar comentários" onclick="fecharComentarios()">
+    <!-- Calendário Modal -->
+    <div id="calendarioModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-calendar-alt"></i> Calendário da Turma</h2>
+                <button class="modal-close" onclick="fecharCalendarioModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: inherit;">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-
-            <div id="comentariosExistentes"></div>
-
-            <div id="comentarioForm" class="comentario-form">
-                <div style="position:relative;">
-                  <textarea id="novoComentario" placeholder="Escreva seu comentário... (máx 120 chars)" rows="4" maxlength="120"></textarea>
-                  <small id="charCount" style="position:absolute; bottom:5px; right:10px; color:#666; font-size:0.8rem;">0/120</small>
-                </div>
-                <button id="btnEnviarComentario" type="button">Enviar comentário</button>
+            <div id="calendarioConteudo" style="padding: 1.5rem; max-height: 400px; overflow-y: auto;">
+                <p style="text-align: center; color: #666;">Carregando eventos...</p>
             </div>
+        </div>
+    </div>
 
-            <div id="mensagemSemConta" class="mensagem-erro" style="display:none;">
-                Você precisa estar logado para comentar. <a href="./auth/cadastro/cadastro.html">Cadastre-se</a> ou <a href="./auth/login/login.html">faça login</a>.
+    <!-- Comments Sidebar -->
+    <section id="secao2" class="comments-sidebar">
+        <div class="comments-header">
+            <h3>Comentários</h3>
+            <button id="closeCommentsBtn" class="close-btn" onclick="fecharComentarios()" title="Fechar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div id="comentariosExistentes" class="comments-list"></div>
+
+        <div id="comentarioForm" class="comment-form">
+            <div class="form-group">
+                <textarea id="novoComentario" placeholder="Escreva seu comentário... (máx 120 caracteres)" maxlength="120"></textarea>
+                <small id="charCount">0/120</small>
             </div>
+            <button id="btnEnviarComentario" class="btn-primary btn-full">
+                <i class="fas fa-paper-plane"></i> Enviar comentário
+            </button>
+        </div>
+
+        <div id="mensagemSemConta" class="alert-message" style="display:none;">
+            <i class="fas fa-info-circle"></i>
+            <span>Você precisa estar logado para comentar. <a href="./auth/cadastro/cadastro.html">Cadastre-se</a> ou <a href="./auth/login/login.html">faça login</a>.</span>
         </div>
     </section>
 
-    <!-- Floating Comments Toggle Button -->
-    <button id="toggleCommentsBtn" class="floating-btn" title="Abrir/Fechar Comentários">
+    <!-- Floating Comments Button -->
+    <button id="toggleCommentsBtn" class="floating-btn comments-btn" title="Comentários">
         <i class="fas fa-comments"></i>
         <span class="btn-text">Comentários</span>
     </button>
 
-    <!-- Rodapé -->
+    <!-- Footer -->
     <footer class="rodape">
-        <div class="rodape-content">
-            <div class="rodape-section">
-                <h3>Sala 205</h3>
-                <p>Anexo Irmã Maria Teresa (EEBIMT)</p>
-            </div>
-            <div class="rodape-section">
-                <h3>Links Rápidos</h3>
-                <ul>
-                    <li><a href="#secaoTopo">Início</a></li>
-                    <li><a href="#secaoTurma">Sobre</a></li>
-                    <li><a href="#secaoGaleria">Galeria</a></li>
-                    <li><a href="./auth/login/login.html">Login</a></li>
-                </ul>
-            </div>
-            <div class="rodape-section">
-                <h3>Informações</h3>
-                <p>Espaço criado para reunir memórias e fotos da turma.</p>
-                <p>Gerido por um grande líder, Robert.</p>
+        <div class="container">
+            <div class="rodape-content">
+                <div class="rodape-section">
+                    <h3><i class="fas fa-graduation-cap"></i> Sala 205</h3>
+                    <p>Anexo Irmã Maria Teresa</p>
+                    <p>EEBIMT</p>
+                </div>
+                <div class="rodape-section">
+                    <h3><i class="fas fa-link"></i> Links</h3>
+                    <ul>
+                        <li><a href="#hero">Início</a></li>
+                        <li><a href="#about">Sobre</a></li>
+                        <li><a href="#galeria">Galeria</a></li>
+                        <li><a href="./auth/login/login.html">Login</a></li>
+                    </ul>
+                </div>
+                <div class="rodape-section">
+                    <h3><i class="fas fa-info-circle"></i> Informações</h3>
+                    <p>Espaço criado para reunir memórias e fotos da turma.</p>
+                    <p>Um projeto gerido com dedicação e amor.</p>
+                </div>
             </div>
         </div>
         <div class="rodape-bottom">
-            <p>&copy; 2026 Sala 205 - Anexo Irmã Maria Teresa (EEBIMT).</p>
+            <p>&copy; 2026 Sala 205 - Anexo Irmã Maria Teresa (EEBIMT). Todos os direitos reservados.</p>
         </div>
     </footer>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="fecharSettings()">×</button>
+            <div id="settingsBody" class="settings-body">
+                <!-- Conteúdo dinâmico -->
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

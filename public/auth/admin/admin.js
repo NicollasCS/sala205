@@ -11,7 +11,54 @@ const LOGS_PAGE_SIZE = 10;
 // Contas protegidas que não podem ser deletadas
 const PROTECTED_ACCOUNTS = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
 
-const state = {
+// ============================================
+// THEME SYNCHRONIZATION
+// ============================================
+
+function salvarTema(tema) {
+    localStorage.setItem('tema', tema);
+    aplicarTema(tema);
+}
+
+function aplicarTema(tema) {
+    document.body.classList.remove('theme-green', 'theme-blue');
+    if (tema === 'green') {
+        document.body.classList.add('theme-green');
+    }
+}
+
+function carregarTema() {
+    const temaArmazenado = localStorage.getItem('tema') || 'green';
+    aplicarTema(temaArmazenado);
+}
+
+// Dark mode
+function carregarModoDark() {
+    const modoDarkArmazenado = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    let shouldBeDark = prefersDark;
+    if (modoDarkArmazenado !== null) {
+        shouldBeDark = modoDarkArmazenado === 'true';
+    }
+    
+    aplicarModoDark(shouldBeDark);
+}
+
+function aplicarModoDark(isDark) {
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+    } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+}
+
+// ============================================
+// ADMIN STATE & UTILITIES
+// ============================================
+const adminState = {
     galeriaPage: 0,
     logsPage: 0,
     userRole: null, // 'admin', 'dev', ou null
@@ -53,33 +100,39 @@ function showLoginError(message = 'Credenciais incorretas!') {
     loginError.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
 }
 
-window.togglePasswordVisibility = (fieldId) => {
-    const input = qs(fieldId);
-    const btn = window.event?.target?.closest('.toggle-password-btn');
-    if (!input || !btn) return;
-
-    if (input.type === 'password') {
-        input.type = 'text';
-        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-    } else {
-        input.type = 'password';
-        btn.innerHTML = '<i class="fas fa-eye"></i>';
-    }
-};
-
 window.onload = () => {
     bindEvents();
     carregarTema();
+    carregarModoDark();
     carregarModoExibicao();
-    if (localStorage.getItem('adminLoggedIn') === 'true') {
-        // Restaurar role do usuário
-        const savedRole = localStorage.getItem('userRole');
-        if (savedRole) {
-            state.userRole = savedRole;
-        }
-        showAdminPanel();
-    }
+    
+    // Verificar sessão no servidor (mais seguro que localStorage)
+    verificarSessao();
 };
+
+/**
+ * Verificar se há uma sessão válida no servidor
+ */
+async function verificarSessao() {
+    try {
+        const response = await apiFetch('/api/auth/admin/verify');
+        const data = await response.json();
+
+        if (data.authenticated && data.user) {
+            adminState.userRole = data.user.role;
+            showAdminPanel();
+        } else {
+            // Sessão inválida ou expirada
+            qs('loginScreen').style.display = 'block';
+            qs('adminPanel').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Erro ao verificar sessão:', error);
+        // Se der erro na rede, mostrar tela de login por segurança
+        qs('loginScreen').style.display = 'block';
+        qs('adminPanel').style.display = 'none';
+    }
+}
 
 function carregarTema() {
     const temaArmazenado = localStorage.getItem('tema') || 'blue';
@@ -106,15 +159,57 @@ function aplicarTema(tema) {
     }
 }
 
-// Modo de Exibição (Claro/Escuro)
+// Modo de Exibição (Claro/Escuro/Automático)
 function carregarModoExibicao() {
     const modoArmazenado = localStorage.getItem('modoExibicao') || 'dark';
     aplicarModoExibicao(modoArmazenado);
+    
+    // Observar mudanças no navegador se em modo automático
+    if (modoArmazenado === 'auto') {
+        observarModoSistema();
+    }
+}
+
+window.togglePasswordVisibility = function(fieldId) {
+    const field = document.getElementById(fieldId);
+    const btn = document.querySelector('.toggle-password-btn');
+    const icon = btn.querySelector('i');
+    
+    if (!field) return;
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
 
 window.mudarModoExibicao = function(modo) {
     localStorage.setItem('modoExibicao', modo);
     aplicarModoExibicao(modo);
+}
+
+window.toggleModoExibicao = function() {
+    const modoAtual = localStorage.getItem('modoExibicao') || 'dark';
+    const novoModo = modoAtual === 'dark' ? 'light' : 'dark';
+    const btn = document.querySelector('.mode-toggle-btn');
+    const icon = btn.querySelector('i');
+    
+    localStorage.setItem('modoExibicao', novoModo);
+    aplicarModoExibicao(novoModo);
+    
+    // Atualizar ícone
+    if (novoModo === 'light') {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+    } else {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+    }
 }
 
 function aplicarModoExibicao(modo) {
@@ -131,10 +226,73 @@ function aplicarModoExibicao(modo) {
     if (radio) {
         radio.checked = true;
     }
+    
+    // Atualizar ícone do botão de toggle
+    const btn = document.querySelector('.mode-toggle-btn');
+    if (btn) {
+        const icon = btn.querySelector('i');
+        if (icon) {
+            if (modo === 'light') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else if (modo === 'auto') {
+                icon.classList.remove('fa-moon', 'fa-sun');
+                icon.classList.add('fa-circle-half-stroke');
+            } else {
+                icon.classList.remove('fa-sun', 'fa-circle-half-stroke');
+                icon.classList.add('fa-moon');
+            }
+        }
+    }
+}
+
+// Observar mudanças de modo do sistema (para modo automático)
+function observarModoSistema() {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    // Função para lidar com mudanças
+    const handleChange = (e) => {
+        const modoArmazenado = localStorage.getItem('modoExibicao');
+        if (modoArmazenado === 'auto') {
+            const novoModo = e.matches ? 'dark' : 'light';
+            // Aplicar modo sem salvar no localStorage (mantém 'auto')
+            aplicarModoExibicaoDirecto(novoModo);
+        }
+    };
+    
+    // Listener para mudanças
+    mediaQuery.addEventListener('change', handleChange);
+}
+
+// Aplica modo de exibição sem mudar o localStorage
+function aplicarModoExibicaoDirecto(modo) {
+    document.documentElement.setAttribute('data-theme', modo);
+    document.body.classList.remove('light-mode', 'dark-mode');
+    if (modo === 'light') {
+        document.body.classList.add('light-mode');
+    } else {
+        document.body.classList.add('dark-mode');
+    }
+}
+
+window.mudarModoExibicao = function(modo) {
+    localStorage.setItem('modoExibicao', modo);
+    
+    if (modo === 'auto') {
+        // Detectar preferência atual do sistema
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        aplicarModoExibicaoDirecto(prefersDark ? 'dark' : 'light');
+        // Começar a observar mudanças
+        observarModoSistema();
+    } else {
+        // Modo manual (light ou dark)
+        aplicarModoExibicao(modo);
+    }
 }
 
 function bindEvents() {
     qs('adminLoginForm').addEventListener('submit', handleLoginSubmit);
+    qs('homeBtn').addEventListener('click', handleHome);
     qs('logoutBtn').addEventListener('click', handleLogout);
     qs('refresh-comments').addEventListener('click', loadComments);
     qs('refresh-users').addEventListener('click', loadUsers);
@@ -162,8 +320,38 @@ function bindEvents() {
     canvas.addEventListener('touchend', endDrag);
 
     document.querySelectorAll('.nav-btn').forEach((btn) => {
-        btn.addEventListener('click', () => changeTab(btn.dataset.tab));
+        btn.addEventListener('click', () => {
+            changeTab(btn.dataset.tab);
+            // Fechar menu no mobile após clicar em uma aba
+            if (window.innerWidth <= 768) {
+                closeMenuMobile();
+            }
+        });
     });
+
+    // Event listeners para mobile menu toggle
+    const toggleMenuBtn = qs('toggleMenuBtn');
+    const closeMenuBtn = qs('closeMenuBtn');
+    const sidebarNav = qs('sidebarNav');
+    
+    if (toggleMenuBtn) {
+        toggleMenuBtn.addEventListener('click', toggleMenuMobile);
+    }
+    
+    if (closeMenuBtn) {
+        closeMenuBtn.addEventListener('click', closeMenuMobile);
+    }
+
+    // Fechar menu ao clicar fora dele
+    if (window.innerWidth <= 768) {
+        document.addEventListener('click', (e) => {
+            if (sidebarNav?.classList.contains('expanded') && 
+                !sidebarNav?.contains(e.target) && 
+                !toggleMenuBtn?.contains(e.target)) {
+                closeMenuMobile();
+            }
+        });
+    }
 
     // Event listeners para Logs
     qs('clear-logs')?.addEventListener('click', clearLogs);
@@ -188,8 +376,13 @@ function bindEvents() {
         publicarAtualizacao();
     });
 
-    // Event listener para Database
+    // Event listeners para Database
     qs('database-refresh-btn')?.addEventListener('click', loadDatabase);
+
+    // Event listeners para Editar Textos
+    qs('salvarTextos')?.addEventListener('click', salvarTextos);
+    qs('previewTextos')?.addEventListener('click', previewTextos);
+    qs('resetTextos')?.addEventListener('click', resetTextos);
 
     // Contador de caracteres
     qs('atualizacaoTexto')?.addEventListener('input', (e) => {
@@ -200,15 +393,15 @@ function bindEvents() {
 
     // Event listeners para Paginação de Logs
     qs('logs-prev')?.addEventListener('click', () => {
-        if (state.logsPage > 0) {
-            state.logsPage--;
+        if (adminState.logsPage > 0) {
+            adminState.logsPage--;
             filterLogs('logs');
         }
     });
     qs('logs-next')?.addEventListener('click', () => {
         const totalPages = Math.ceil(currentFilteredLogs.length / LOGS_PAGE_SIZE);
-        if (state.logsPage < totalPages - 1) {
-            state.logsPage++;
+        if (adminState.logsPage < totalPages - 1) {
+            adminState.logsPage++;
             filterLogs('logs');
         }
     });
@@ -249,6 +442,43 @@ function onTipoMidiaChange() {
     resetCropState();
 }
 
+/* ===== MOBILE MENU FUNCTIONS ===== */
+function toggleMenuMobile() {
+    const sidebarNav = qs('sidebarNav');
+    const toggleBtn = qs('toggleMenuBtn');
+    
+    if (!sidebarNav) return;
+    
+    const isExpanded = sidebarNav.classList.contains('expanded');
+    
+    if (isExpanded) {
+        closeMenuMobile();
+    } else {
+        sidebarNav.classList.add('expanded');
+        toggleBtn?.classList.add('open');
+    }
+}
+
+function closeMenuMobile() {
+    const sidebarNav = qs('sidebarNav');
+    const toggleBtn = qs('toggleMenuBtn');
+    
+    if (!sidebarNav) return;
+    
+    sidebarNav.classList.remove('expanded');
+    toggleBtn?.classList.remove('open');
+}
+
+window.addEventListener('resize', () => {
+    // Fechar menu quando volta para desktop
+    if (window.innerWidth > 768) {
+        const sidebarNav = qs('sidebarNav');
+        const toggleBtn = qs('toggleMenuBtn');
+        sidebarNav?.classList.remove('expanded');
+        toggleBtn?.classList.remove('open');
+    }
+});
+
 async function handleLoginSubmit(e) {
     e.preventDefault();
     const user = qs('adminUser').value.trim();
@@ -260,64 +490,27 @@ async function handleLoginSubmit(e) {
     }
 
     try {
-        const response = await fetch('/api/login', {
+        const response = await fetch('/api/auth/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // Importante: enviar e receber cookies
             body: JSON.stringify({ nome: user, senha: pass })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            if (user === DEV_USER && pass === DEV_PASS) {
-                localStorage.setItem('adminLoggedIn', 'true');
-                localStorage.setItem('userRole', 'dev');
-                localStorage.setItem('userName', DEV_USER);
-                state.userRole = 'dev';
-                showAdminPanel();
-                return;
-            }
-            if (user === ADMIN_USER && pass === ADMIN_PASS) {
-                localStorage.setItem('adminLoggedIn', 'true');
-                localStorage.setItem('userRole', 'admin');
-                localStorage.setItem('userName', ADMIN_USER);
-                state.userRole = 'admin';
-                showAdminPanel();
-                return;
-            }
             return showLoginError(data.error || 'Credenciais incorretas!');
         }
 
-        const userData = data.user;
-        if (!userData) {
-            return showLoginError('Resposta inválida do servidor.');
-        }
-
-        localStorage.setItem('adminLoggedIn', 'true');
-        localStorage.setItem('userRole', userData.role || (userData.is_root ? 'root' : userData.is_admin ? 'admin' : 'user'));
-        localStorage.setItem('userName', userData.nome);
-        localStorage.setItem('userId', userData.id);
-        state.userRole = localStorage.getItem('userRole');
+        // Login bem-sucedido! O cookie foi automaticamente setado pelo servidor
+        adminState.userRole = data.user.role;
         showAdminPanel();
+        qs('adminLoginForm').reset();
+        
     } catch (error) {
-        console.warn('Erro de rede ao tentar login:', error);
-        if (user === DEV_USER && pass === DEV_PASS) {
-            localStorage.setItem('adminLoggedIn', 'true');
-            localStorage.setItem('userRole', 'dev');
-            localStorage.setItem('userName', DEV_USER);
-            state.userRole = 'dev';
-            showAdminPanel();
-            return;
-        }
-        if (user === ADMIN_USER && pass === ADMIN_PASS) {
-            localStorage.setItem('adminLoggedIn', 'true');
-            localStorage.setItem('userRole', 'admin');
-            localStorage.setItem('userName', ADMIN_USER);
-            state.userRole = 'admin';
-            showAdminPanel();
-            return;
-        }
-        showLoginError('Não foi possível conectar ao servidor de login.');
+        console.warn('Erro ao fazer login:', error);
+        showLoginError('Não foi possível conectar ao servidor.');
     }
 }
 
@@ -353,30 +546,31 @@ function updatePermissions() {
         }
     }
 
-    // Dev e Admin têm as mesmas permissões
-    const isAdmin = userRole === 'admin' || userRole === 'dev';
+    // Apenas DEV205-1 pode editar atualizações
+    const isDev = userRole === 'dev';
+    const isAdmin = userRole === 'admin';
     
-    // Mostrar/esconder formulário de atualizações - admin e dev podem editar
+    // Mostrar/esconder formulário de atualizações - APENAS DEV pode editar
     if (formContainer) {
-        if (isAdmin) {
-            formContainer.style.display = 'block';
-        } else {
-            formContainer.style.display = 'none';
-        }
+        formContainer.style.display = isDev ? 'block' : 'none';
     }
 
-    // Mostrar/esconder botões de ação - admin e dev podem deletar/exportar
+    // Mostrar/esconder botões de ação - APENAS DEV pode deletar/exportar
     if (actionsDiv) {
-        if (isAdmin) {
+        if (isDev) {
             actionsDiv.style.display = 'flex';
         } else {
             actionsDiv.style.display = 'none';
         }
     }
 
-    // Remover aviso de admin (agora admin e dev têm as mesmas permissões)
+    // Mostrar aviso quando admin tenta acessar (sem permissão para editar atualizações)
     if (adminWarning) {
-        adminWarning.style.display = 'none';
+        if (isAdmin) {
+            adminWarning.style.display = 'block';
+        } else {
+            adminWarning.style.display = 'none';
+        }
     }
 
     // Liberar banco de dados para admin e dev
@@ -395,16 +589,33 @@ function updatePermissions() {
     }
 }
 
+function handleHome() {
+    // Navegar para página principal (mantém a sessão de admin ativa)
+    window.location.href = '/';
+}
+
 function handleLogout() {
-    localStorage.removeItem('adminLoggedIn');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userId');
-    state.userRole = null;
-    qs('adminPanel').style.display = 'none';
-    qs('loginScreen').style.display = 'block';
-    document.body.classList.remove('admin-open');
-    qs('adminLoginForm').reset();
+    // Fazer logout no servidor (destruir cookie)
+    fetch('/api/auth/admin/logout', {
+        method: 'POST',
+        credentials: 'include'
+    }).then(() => {
+        // Limpar estado local
+        adminState.userRole = null;
+        
+        // Mostrar tela de login
+        qs('adminPanel').style.display = 'none';
+        qs('loginScreen').style.display = 'block';
+        document.body.classList.remove('admin-open');
+        qs('adminLoginForm').reset();
+    }).catch(error => {
+        console.error('Erro ao fazer logout:', error);
+        // Mesmo se der erro, fazer logout local
+        adminState.userRole = null;
+        qs('adminPanel').style.display = 'none';
+        qs('loginScreen').style.display = 'block';
+        document.body.classList.remove('admin-open');
+    });
 }
 
 function changeTab(tab) {
@@ -426,6 +637,8 @@ function changeTab(tab) {
         filterLogs('atualizacoes');
     } else if (tab === 'database') {
         loadDatabase();
+    } else if (tab === 'textos') {
+        carregarTextos();
     }
 }
 
@@ -454,6 +667,7 @@ async function apiFetch(url, options = {}) {
 
     return fetch(url, {
         ...options,
+        credentials: 'include', // Incluir cookies HttpOnly automaticamente
         headers
     });
 }
@@ -506,6 +720,144 @@ async function saveDescricao() {
     } catch (e) {
         console.error('Erro ao salvar descrição:', e);
         alert(`Erro: ${e.message}`);
+    }
+}
+
+// ============================================
+// EDITAR TEXTOS
+// ============================================
+
+async function carregarTextos() {
+    try {
+        const res = await apiFetch('/api/textos-pagina', { admin: false });
+        if (!res.ok) throw new Error(`Erro ${res.status}`);
+        
+        const textos = await res.json();
+        
+        // Preencher campos com valores salvos
+        qs('textoTituloMain').value = textos?.tituloMain || 'Sala 205 - Anexo';
+        qs('textoSubtituloMain').value = textos?.subtituloMain || '';
+        qs('textoDescricaoHero').value = textos?.descricaoHero || '';
+        qs('textoBtnExplorar').value = textos?.btnExplorar || 'Explorar';
+        qs('textoTituloGaleria').value = textos?.tituloGaleria || 'Galeria de Fotos';
+        qs('textoSubtituloGaleria').value = textos?.subtituloGaleria || '';
+        qs('textoTituloComunidade').value = textos?.tituloComunidade || '';
+        qs('textoSubtituloComunidade').value = textos?.subtituloComunidade || '';
+        qs('textoComentarios').value = textos?.comentarios || '';
+        qs('textoSeguranca').value = textos?.seguranca || '';
+        qs('textoCadastro').value = textos?.cadastro || '';
+    } catch (e) {
+        console.error('Erro ao carregar textos:', e);
+        // Valores padrão em caso de erro
+        qs('textoTituloMain').value = 'Sala 205 - Anexo';
+        qs('textoBtnExplorar').value = 'Explorar';
+        qs('textoTituloGaleria').value = 'Galeria de Fotos';
+    }
+}
+
+async function salvarTextos() {
+    const textos = {
+        tituloMain: qs('textoTituloMain').value.trim(),
+        subtituloMain: qs('textoSubtituloMain').value.trim(),
+        descricaoHero: qs('textoDescricaoHero').value.trim(),
+        btnExplorar: qs('textoBtnExplorar').value.trim(),
+        tituloGaleria: qs('textoTituloGaleria').value.trim(),
+        subtituloGaleria: qs('textoSubtituloGaleria').value.trim(),
+        tituloComunidade: qs('textoTituloComunidade').value.trim(),
+        subtituloComunidade: qs('textoSubtituloComunidade').value.trim(),
+        comentarios: qs('textoComentarios').value.trim(),
+        seguranca: qs('textoSeguranca').value.trim(),
+        cadastro: qs('textoCadastro').value.trim()
+    };
+
+    // Validações básicas
+    if (!textos.tituloMain) {
+        alert('O título principal é obrigatório');
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/textos-pagina', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(textos)
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || `Erro ${res.status}`);
+        }
+
+        alert('✅ Todos os textos foram salvos com sucesso!');
+        // Recarregar os dados
+        setTimeout(carregarTextos, 500);
+    } catch (e) {
+        console.error('Erro ao salvar textos:', e);
+        alert(`❌ Erro ao salvar: ${e.message}`);
+    }
+}
+
+function previewTextos() {
+    const modalContent = document.createElement('div');
+    modalContent.innerHTML = `
+        <div style="background: var(--panel-bg); border-radius: 16px; padding: 2rem; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 1rem;">
+                <h2 style="color: var(--text); font-size: 1.5rem; margin: 0;"><i class="fas fa-eye"></i> Prévia dos Textos</h2>
+                <button onclick="this.closest('.preview-modal-overlay').remove()" style="background: transparent; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+            <div style="color: var(--text);">
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 0.5rem;">${qs('textoTituloMain').value || 'Título'}</h3>
+                    <p style="color: var(--muted); font-size: 1.1rem; margin: 0.5rem 0;">${qs('textoSubtituloMain').value || 'Subtítulo'}</p>
+                    <p style="color: var(--text); margin: 1rem 0;">${qs('textoDescricaoHero').value || 'Descrição'}</p>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 1rem;">${qs('textoTituloGaleria').value || 'Galeria'}</h3>
+                    <p style="color: var(--muted);">${qs('textoSubtituloGaleria').value || 'Descrição da galeria'}</p>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
+
+                <div>
+                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 1rem;">${qs('textoTituloComunidade').value || 'Comunidade'}</h3>
+                    <p style="color: var(--muted);">${qs('textoSubtituloComunidade').value || 'Descrição da comunidade'}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'preview-modal-overlay';
+    overlay.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
+        display: flex; align-items: center; justify-content: center; 
+        z-index: 5000;
+    `;
+    overlay.appendChild(modalContent);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
+}
+
+function resetTextos() {
+    if (confirm('Tem certeza que deseja restaurar os textos padrão?')) {
+        qs('textoTituloMain').value = 'Sala 205 - Anexo';
+        qs('textoSubtituloMain').value = 'Irmã Maria Teresa (EEBIMT)';
+        qs('textoDescricaoHero').value = 'Conheça a história, memórias e projetos da nossa turma';
+        qs('textoBtnExplorar').value = 'Explorar';
+        qs('textoTituloGaleria').value = 'Galeria de Fotos';
+        qs('textoSubtituloGaleria').value = 'Momentos especiais da Sala 205';
+        qs('textoTituloComunidade').value = 'Participe da Comunidade';
+        qs('textoSubtituloComunidade').value = 'Conecte-se com seus colegas de turma';
+        qs('textoComentarios').value = 'Deixe mensagens e interaja com a turma';
+        qs('textoSeguranca').value = 'Faça login para acesso completo';
+        qs('textoCadastro').value = 'Crie sua conta e faça parte';
+        
+        alert('Textos restaurados para os padrões. Clique em "Salvar" para confirmar.');
     }
 }
 
@@ -563,13 +915,16 @@ window.togglePin = async (id) => {
 async function loadUsers() {
     try {
         const res = await apiFetch('/api/usuarios');
-        if (!res.ok) throw new Error(`Falha ao buscar usuários (${res.status})`);
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(`Erro ao buscar usuários (${res.status}): ${errorData.error || res.statusText}`);
+        }
 
         const users = await res.json();
         const container = qs('users-list');
         const counter = qs('users-count');
 
-        if (!Array.isArray(users)) throw new Error('Formato de dados inválido');
+        if (!Array.isArray(users)) throw new Error('Formato de dados inválido - esperado array');
 
         counter.textContent = `${users.length} contas`;
 
@@ -586,32 +941,14 @@ async function loadUsers() {
                 </div>
                 ${PROTECTED_ACCOUNTS.includes(u.nome)
                     ? '<span class="protegido-badge"><i class="fas fa-shield-alt"></i> Protegido</span>'
-                    : `<button class="delete-btn" onclick="deleteUser('${u.id}', '${u.nome.replace(/'/g, "\\'")}')"><i class="fas fa-user-times"></i> Apagar Conta</button>`}
+                    : '<span class="protegido-badge"><i class="fas fa-lock"></i> Bloqueado</span>'}
             </div>
         `).join('');
     } catch (e) {
-        console.error(e);
-        qs('users-list').innerHTML = `<p class="error-text">Erro ao carregar contas: ${e.message}</p>`;
+        console.error('Erro ao carregar usuários:', e);
+        qs('users-list').innerHTML = `<p class="error-text">❌ Erro ao carregar contas: ${e.message}</p>`;
     }
 }
-
-window.deleteUser = async (id, nome) => {
-    if (!confirm(`Apagar ${nome} e seus comentários? Esta ação não pode ser desfeita.`)) return;
-
-    const res = await apiFetch('/api/usuarios', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, nome })
-    });
-
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(`Erro ao apagar usuário: ${data.error || res.statusText}`);
-        return;
-    }
-
-    loadUsers();
-};
 
 async function loadGaleria(page = 0) {
     try {
@@ -621,9 +958,9 @@ async function loadGaleria(page = 0) {
         const pagination = response.pagination || {};
         const container = qs('galeria-list');
 
-        state.galeriaPage = pagination.page || 0;
-        state.galeriaPagination = pagination;
-        state.galeriaItems = imagens;
+        adminState.galeriaPage = pagination.page || 0;
+        adminState.galeriaPagination = pagination;
+        adminState.galeriaItems = imagens;
 
         if (!imagens.length) {
             container.innerHTML = '<div class="empty-state"><i class="fas fa-images"></i><p>Nenhuma imagem na galeria</p></div>';
@@ -683,7 +1020,7 @@ function renderGaleriaPagination() {
         qs('tab-galeria').appendChild(paginationBar);
     }
 
-    const { page = 0, totalPages = 0, hasNext = false, hasPrevious = false, total = 0 } = state.galeriaPagination;
+    const { page = 0, totalPages = 0, hasNext = false, hasPrevious = false, total = 0 } = adminState.galeriaPagination;
     if (!total) {
         paginationBar.innerHTML = '';
         return;
@@ -709,11 +1046,11 @@ function initSortable() {
         return;
     }
 
-    if (state.sortable) {
-        state.sortable.destroy();
+    if (adminState.sortable) {
+        adminState.sortable.destroy();
     }
 
-    state.sortable = Sortable.create(list, {
+    adminState.sortable = Sortable.create(list, {
         animation: 180,
         handle: '.drag-handle',
         draggable: '.galeria-admin-item',
@@ -728,13 +1065,13 @@ function initSortable() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderedIds })
             });
-            await loadGaleria(state.galeriaPage);
+            await loadGaleria(adminState.galeriaPage);
         }
     });
 }
 
 window.abrirGaleriaModal = (id = null) => {
-    state.editingGaleriaId = id;
+    adminState.editingGaleriaId = id;
     qs('galeriaModal').style.display = 'block';
     qs('galeriaForm').reset();
     qs('galeriaModalTitle').textContent = id ? 'Editar Imagem' : 'Nova Imagem';
@@ -750,7 +1087,7 @@ window.abrirGaleriaModal = (id = null) => {
 
     if (!id) return;
 
-    const item = state.galeriaItems.find((img) => img.id === id);
+    const item = adminState.galeriaItems.find((img) => img.id === id);
     if (!item) return;
 
     qs('galeriaTitulo').value = item.titulo || '';
@@ -766,7 +1103,7 @@ window.abrirGaleriaModal = (id = null) => {
     }
 
     if (item.url) {
-        state.crop.finalDataUrl = item.url;
+        adminState.crop.finalDataUrl = item.url;
         qs('previewImagem').src = item.url;
         qs('previewContainer').style.display = 'block';
     }
@@ -774,7 +1111,7 @@ window.abrirGaleriaModal = (id = null) => {
 
 window.fecharGaleriaModal = () => {
     qs('galeriaModal').style.display = 'none';
-    state.editingGaleriaId = null;
+    adminState.editingGaleriaId = null;
     resetCropState();
     qs('galeriaForm').reset();
 };
@@ -789,7 +1126,7 @@ window.deletarGaleria = async (id) => {
         return;
     }
 
-    const nextPage = state.galeriaItems.length === 1 && state.galeriaPage > 0 ? state.galeriaPage - 1 : state.galeriaPage;
+    const nextPage = adminState.galeriaItems.length === 1 && adminState.galeriaPage > 0 ? adminState.galeriaPage - 1 : adminState.galeriaPage;
     await loadGaleria(nextPage);
 };
 
@@ -801,7 +1138,7 @@ async function loadCalendario() {
         const response = await res.json();
         const eventos = response.data || [];
         const container = qs('calendario-list');
-        state.calendarioItems = eventos;
+        adminState.calendarioItems = eventos;
 
         const semana = getCurrentWeekDates();
         const eventosPorDia = eventos.reduce((acc, evento) => {
@@ -888,7 +1225,7 @@ function getCurrentWeekDates() {
 }
 
 window.abrirCalendarioModal = (id = null) => {
-    state.editingCalendarioId = id;
+    adminState.editingCalendarioId = id;
     qs('calendarioModal').style.display = 'block';
     qs('calendarioForm').reset();
 
@@ -899,7 +1236,7 @@ window.abrirCalendarioModal = (id = null) => {
 
     if (!id) return;
 
-    const item = state.calendarioItems.find((evento) => String(evento.id) === String(id));
+    const item = adminState.calendarioItems.find((evento) => String(evento.id) === String(id));
     if (!item) return;
 
     qs('calendarioTitulo').value = item.titulo || '';
@@ -910,7 +1247,7 @@ window.abrirCalendarioModal = (id = null) => {
 
 window.fecharCalendarioModal = () => {
     qs('calendarioModal').style.display = 'none';
-    state.editingCalendarioId = null;
+    adminState.editingCalendarioId = null;
     qs('calendarioForm').reset();
 };
 
@@ -927,8 +1264,8 @@ async function salvarCalendario(e) {
         return;
     }
 
-    const endpoint = state.editingCalendarioId ? `/api/calendario/${state.editingCalendarioId}` : '/api/calendario';
-    const method = state.editingCalendarioId ? 'PUT' : 'POST';
+    const endpoint = adminState.editingCalendarioId ? `/api/calendario/${adminState.editingCalendarioId}` : '/api/calendario';
+    const method = adminState.editingCalendarioId ? 'PUT' : 'POST';
 
     const res = await apiFetch(endpoint, {
         method,
@@ -944,7 +1281,7 @@ async function salvarCalendario(e) {
 
     fecharCalendarioModal();
     await loadCalendario();
-    alert(state.editingCalendarioId ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!');
+    alert(adminState.editingCalendarioId ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!');
 }
 
 window.deletarCalendario = async (id) => {
@@ -964,17 +1301,17 @@ async function salvarGaleria(e) {
     e.preventDefault();
 
     const tipoMidia = document.querySelector('input[name="tipoMidia"]:checked').value;
-    const novaImagem = !state.editingGaleriaId;
+    const novaImagem = !adminState.editingGaleriaId;
     
     // Se é novo e foto, EXIGIR crop
-    if (novaImagem && tipoMidia === 'photo' && !state.crop.finalDataUrl) {
+    if (novaImagem && tipoMidia === 'photo' && !adminState.crop.finalDataUrl) {
         alert('Para adicionar uma nova foto, você deve: 1) Enviar a foto, 2) Ajustar zoom/posição, 3) Clicar em "Confirmar"');
         return;
     }
 
     // Se é novo e vídeo, EXIGIR upload ou URL
     const videoUrlValue = qs('videoUrl').value.trim();
-    if (novaImagem && tipoMidia === 'video' && !state.crop.finalDataUrl && !videoUrlValue) {
+    if (novaImagem && tipoMidia === 'video' && !adminState.crop.finalDataUrl && !videoUrlValue) {
         alert('Para adicionar um novo vídeo, você deve enviar o arquivo ou informar uma URL (YouTube, Vimeo, link direto, etc).');
         return;
     }
@@ -993,16 +1330,16 @@ async function salvarGaleria(e) {
         const data = qs('galeriaData').value || null;
 
         // Se é vídeo com arquivo (não URL), enviar  como FormData
-        if (tipoMidia === 'video' && state.crop.finalDataUrl && !videoUrlValue) {
+        if (tipoMidia === 'video' && adminState.crop.finalDataUrl && !videoUrlValue) {
             await salvarVideoComUpload(titulo, descricao, data);
         } else {
             // Foto ou vídeo com URL - enviar como JSON
-            await salvarMidiaJSON(state.crop.finalDataUrl || videoUrlValue, titulo, descricao, data, tipoMidia);
+            await salvarMidiaJSON(adminState.crop.finalDataUrl || videoUrlValue, titulo, descricao, data, tipoMidia);
         }
 
         fecharGaleriaModal();
-        await loadGaleria(state.galeriaPage);
-        alert(state.editingGaleriaId ? 'Mídia atualizada com sucesso!' : 'Mídia criada com sucesso!');
+        await loadGaleria(adminState.galeriaPage);
+        alert(adminState.editingGaleriaId ? 'Mídia atualizada com sucesso!' : 'Mídia criada com sucesso!');
     } catch (e) {
         console.error('Erro ao salvar mídia:', e);
         alert(`❌ Erro ao salvar: ${e.message}`);
@@ -1016,11 +1353,11 @@ async function salvarGaleria(e) {
 
 async function salvarVideoComUpload(titulo, descricao, data) {
     // Usar o blob armazenado do arquivo original
-    if (!state.crop.videoBlob) {
+    if (!adminState.crop.videoBlob) {
         throw new Error('Arquivo de vídeo não encontrado. Selecione novamente.');
     }
 
-    const videoBlob = state.crop.videoBlob;
+    const videoBlob = adminState.crop.videoBlob;
     
     // Criar FormData com o arquivo e metadados
     const formData = new FormData();
@@ -1057,8 +1394,8 @@ async function salvarVideoComUpload(titulo, descricao, data) {
 }
 
 async function salvarMidiaJSON(url, titulo, descricao, data, tipoMidia) {
-    const endpoint = state.editingGaleriaId ? `/api/galeria/${state.editingGaleriaId}` : '/api/galeria';
-    const method = state.editingGaleriaId ? 'PUT' : 'POST';
+    const endpoint = adminState.editingGaleriaId ? `/api/galeria/${adminState.editingGaleriaId}` : '/api/galeria';
+    const method = adminState.editingGaleriaId ? 'PUT' : 'POST';
 
     const payload = {
         titulo,
@@ -1098,7 +1435,7 @@ async function salvarMidiaJSON(url, titulo, descricao, data, tipoMidia) {
 }
 
 function resetCropState() {
-    state.crop = {
+    adminState.crop = {
         image: null,
         imageLoaded: false,
         zoom: 1,
@@ -1110,7 +1447,7 @@ function resetCropState() {
         dragStartX: 0,
         dragStartY: 0,
         dragging: false,
-        finalDataUrl: state.crop?.finalDataUrl || '',
+        finalDataUrl: adminState.crop?.finalDataUrl || '',
         videoBlob: null
     };
     qs('zoomSlider').value = 1;
@@ -1136,11 +1473,11 @@ function onFileSelected(event) {
         }
 
         // Armazenar o blob para upload
-        state.crop.videoBlob = file;
+        adminState.crop.videoBlob = file;
         
         const reader = new FileReader();
         reader.onload = () => {
-            state.crop.finalDataUrl = reader.result;
+            adminState.crop.finalDataUrl = reader.result;
             const container = qs('previewContainer');
             container.innerHTML = '<label>Preview final:</label>';
             const preview = document.createElement('video');
@@ -1166,10 +1503,10 @@ function onFileSelected(event) {
         reader.onload = () => {
             const image = new Image();
             image.onload = () => {
-                state.crop.image = image;
-                state.crop.imageLoaded = true;
-                state.crop.rotation = 0;
-                state.crop.finalDataUrl = '';
+                adminState.crop.image = image;
+                adminState.crop.imageLoaded = true;
+                adminState.crop.rotation = 0;
+                adminState.crop.finalDataUrl = '';
                 prepareCropInitialState();
                 qs('cropContainer').style.display = 'block';
                 qs('previewContainer').style.display = 'none';
@@ -1182,18 +1519,18 @@ function onFileSelected(event) {
 }
 
 function prepareCropInitialState() {
-    const image = state.crop.image;
+    const image = adminState.crop.image;
     const baseScale = Math.max(CROP_SIZE / image.width, CROP_SIZE / image.height);
 
-    state.crop.minZoom = 1;
-    state.crop.maxZoom = 2.6;
-    state.crop.zoom = 1.04;
-    state.crop.baseScale = baseScale;
-    state.crop.offsetX = 0;
-    state.crop.offsetY = 0;
-    qs('zoomSlider').min = state.crop.minZoom;
-    qs('zoomSlider').max = state.crop.maxZoom;
-    qs('zoomSlider').value = state.crop.zoom;
+    adminState.crop.minZoom = 1;
+    adminState.crop.maxZoom = 2.6;
+    adminState.crop.zoom = 1.04;
+    adminState.crop.baseScale = baseScale;
+    adminState.crop.offsetX = 0;
+    adminState.crop.offsetY = 0;
+    qs('zoomSlider').min = adminState.crop.minZoom;
+    qs('zoomSlider').max = adminState.crop.maxZoom;
+    qs('zoomSlider').value = adminState.crop.zoom;
     clampCropOffsets();
 }
 
@@ -1205,47 +1542,47 @@ function getEventPoint(event) {
 }
 
 function startDrag(event) {
-    if (!state.crop.imageLoaded) return;
+    if (!adminState.crop.imageLoaded) return;
     event.preventDefault();
     const point = getEventPoint(event);
-    state.crop.dragging = true;
-    state.crop.dragStartX = point.x - state.crop.offsetX;
-    state.crop.dragStartY = point.y - state.crop.offsetY;
+    adminState.crop.dragging = true;
+    adminState.crop.dragStartX = point.x - adminState.crop.offsetX;
+    adminState.crop.dragStartY = point.y - adminState.crop.offsetY;
 }
 
 function onDrag(event) {
-    if (!state.crop.dragging || !state.crop.imageLoaded) return;
+    if (!adminState.crop.dragging || !adminState.crop.imageLoaded) return;
     event.preventDefault();
     const point = getEventPoint(event);
-    state.crop.offsetX = point.x - state.crop.dragStartX;
-    state.crop.offsetY = point.y - state.crop.dragStartY;
+    adminState.crop.offsetX = point.x - adminState.crop.dragStartX;
+    adminState.crop.offsetY = point.y - adminState.crop.dragStartY;
     clampCropOffsets();
     drawCrop();
 }
 
 function endDrag() {
-    state.crop.dragging = false;
+    adminState.crop.dragging = false;
 }
 
 function onZoomChange(event) {
-    if (!state.crop.imageLoaded) return;
-    state.crop.zoom = Number(event.target.value);
+    if (!adminState.crop.imageLoaded) return;
+    adminState.crop.zoom = Number(event.target.value);
     clampCropOffsets();
     drawCrop();
 }
 
 function getCropMetrics() {
-    const image = state.crop.image;
-    const radians = (state.crop.rotation * Math.PI) / 180;
+    const image = adminState.crop.image;
+    const radians = (adminState.crop.rotation * Math.PI) / 180;
     const rotated = Math.abs(Math.sin(radians)) > 0.5;
     const sourceWidth = rotated ? image.height : image.width;
     const sourceHeight = rotated ? image.width : image.height;
-    const scale = state.crop.baseScale * state.crop.zoom;
+    const scale = adminState.crop.baseScale * adminState.crop.zoom;
     return { radians, scale, sourceWidth, sourceHeight };
 }
 
 function clampCropOffsets() {
-    if (!state.crop.imageLoaded) return;
+    if (!adminState.crop.imageLoaded) return;
     const { scale, sourceWidth, sourceHeight } = getCropMetrics();
 
     const renderedWidth = sourceWidth * scale;
@@ -1253,12 +1590,12 @@ function clampCropOffsets() {
     const maxOffsetX = Math.max(0, (renderedWidth - CROP_SIZE) / 2);
     const maxOffsetY = Math.max(0, (renderedHeight - CROP_SIZE) / 2);
 
-    state.crop.offsetX = Math.min(maxOffsetX, Math.max(-maxOffsetX, state.crop.offsetX));
-    state.crop.offsetY = Math.min(maxOffsetY, Math.max(-maxOffsetY, state.crop.offsetY));
+    adminState.crop.offsetX = Math.min(maxOffsetX, Math.max(-maxOffsetX, adminState.crop.offsetX));
+    adminState.crop.offsetY = Math.min(maxOffsetY, Math.max(-maxOffsetY, adminState.crop.offsetY));
 }
 
 function drawCrop() {
-    if (!state.crop.imageLoaded) return;
+    if (!adminState.crop.imageLoaded) return;
 
     const canvas = qs('cropCanvas');
     const ctx = canvas.getContext('2d');
@@ -1272,10 +1609,10 @@ function drawCrop() {
     ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE);
 
     ctx.save();
-    ctx.translate(CROP_SIZE / 2 + state.crop.offsetX, CROP_SIZE / 2 + state.crop.offsetY);
+    ctx.translate(CROP_SIZE / 2 + adminState.crop.offsetX, CROP_SIZE / 2 + adminState.crop.offsetY);
     ctx.rotate(radians);
     ctx.scale(scale, scale);
-    ctx.drawImage(state.crop.image, -state.crop.image.width / 2, -state.crop.image.height / 2);
+    ctx.drawImage(adminState.crop.image, -adminState.crop.image.width / 2, -adminState.crop.image.height / 2);
     ctx.restore();
 
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
@@ -1284,22 +1621,22 @@ function drawCrop() {
 }
 
 window.rotarImagem = (angle = 90) => {
-    if (!state.crop.imageLoaded) return;
-    state.crop.rotation = (state.crop.rotation + angle + 360) % 360;
+    if (!adminState.crop.imageLoaded) return;
+    adminState.crop.rotation = (adminState.crop.rotation + angle + 360) % 360;
     prepareCropInitialState();
     drawCrop();
 };
 
 window.resetarPosicao = () => {
-    if (!state.crop.imageLoaded) return;
+    if (!adminState.crop.imageLoaded) return;
     prepareCropInitialState();
     drawCrop();
 };
 
 window.confirmarCrop = () => {
-    if (!state.crop.imageLoaded) return;
-    state.crop.finalDataUrl = qs('cropCanvas').toDataURL('image/jpeg', 0.9);
-    qs('previewImagem').src = state.crop.finalDataUrl;
+    if (!adminState.crop.imageLoaded) return;
+    adminState.crop.finalDataUrl = qs('cropCanvas').toDataURL('image/jpeg', 0.9);
+    qs('previewImagem').src = adminState.crop.finalDataUrl;
     qs('previewContainer').style.display = 'block';
     qs('cropContainer').style.display = 'none';
     qs('galeriaUrl').value = '';
@@ -1315,7 +1652,7 @@ async function loadContent() {
     await Promise.all([
         loadComments(),
         loadUsers(),
-        loadGaleria(state.galeriaPage),
+        loadGaleria(adminState.galeriaPage),
         loadDescricao(),
         loadCalendario(),
         loadLogs()
@@ -1832,9 +2169,16 @@ async function loadDatabase() {
 
         // Buscar lista de tabelas
         const tablesRes = await apiFetch('/api/database/tables');
-        if (!tablesRes.ok) throw new Error('Erro ao buscar tabelas');
+        if (!tablesRes.ok) {
+            const errorData = await tablesRes.json();
+            throw new Error(`Erro ao buscar tabelas (${tablesRes.status}): ${errorData.error || 'Erro desconhecido'}`);
+        }
         
         const { tables } = await tablesRes.json();
+        if (!Array.isArray(tables)) {
+            throw new Error('Resposta inválida: lista de tabelas não é um array');
+        }
+
         const isDev = localStorage.getItem('userRole') === 'dev';
 
         // Buscar dados de cada tabela
@@ -1845,9 +2189,30 @@ async function loadDatabase() {
                 if (res.ok) {
                     const data = await res.json();
                     tablesData.push(data);
+                } else {
+                    const errorData = await res.json();
+                    console.warn(`Erro ao buscar dados de ${table}:`, errorData);
+                    // Ainda assim adicionar tabela vazia
+                    tablesData.push({
+                        tableName: table,
+                        data: [],
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                        pages: 0
+                    });
                 }
             } catch (e) {
                 console.warn(`Erro ao buscar dados de ${table}:`, e);
+                // Adicionar tabela vazia como fallback
+                tablesData.push({
+                    tableName: table,
+                    data: [],
+                    total: 0,
+                    limit: 10,
+                    offset: 0,
+                    pages: 0
+                });
             }
         }
 
@@ -1892,12 +2257,7 @@ async function loadDatabase() {
                                             const inputId = `password-${tableData.tableName}-${idx}-${colIdx}`;
                                             return `
                                                 <td class="password-cell">
-                                                    <div class="password-cell-inner">
-                                                        <input type="password" id="${inputId}" value="${displayVal}" readonly>
-                                                        <button class="toggle-password-btn" onclick="togglePasswordVisibility('${inputId}')" title="Mostrar/ocultar senha">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
+                                                    <input type="password" id="${inputId}" value="${displayVal}" readonly>
                                                 </td>
                                             `;
                                         }
@@ -1980,8 +2340,10 @@ window.clearDatabaseTable = async (tableName) => {
     }
 };
 
-setInterval(() => {
-    if (localStorage.getItem('adminLoggedIn') === 'true') {
-        loadContent();
-    }
-}, 10000);
+// Auto-refresh desabilitado - estava causando conflito na página principal
+// Refresh manual quando o admin quer atualizar
+// setInterval(() => {
+//     if (localStorage.getItem('adminLoggedIn') === 'true') {
+//         loadContent();
+//     }
+// }, 10000);

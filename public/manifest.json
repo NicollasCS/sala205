@@ -1,0 +1,67 @@
+{
+  "name": "Sala 205 - Anexo",
+  "short_name": "Sala 205",
+  "description": "Comunidade da Sala 205 - Irmã Maria Teresa (EEBIMT)",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1e293b",
+  "background_color": "#0f172a",
+  "icons": [
+    {
+      "src": "./image/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./image/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./image/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./image/icon.png",
+      "sizes": "540x720",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["education", "social"],
+  "shortcuts": [
+    {
+      "name": "Fazer Login",
+      "short_name": "Login",
+      "description": "Acesse sua conta na Sala 205",
+      "url": "/auth/login/login.html",
+      "icons": [
+        {
+          "src": "./image/icon.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Criar Conta",
+      "short_name": "Cadastro",
+      "description": "Crie uma nova conta",
+      "url": "/auth/cadastro/cadastro.html",
+      "icons": [
+        {
+          "src": "./image/icon.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

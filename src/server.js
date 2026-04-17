@@ -8,6 +8,7 @@ import multer from 'multer';
 import busboy from 'busboy';
 import fs from 'fs';
 import crypto from 'crypto';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ const GALERIA_PAGE_SIZE = 5;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Supabase Client
@@ -35,6 +37,12 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABAS
 const supabase = supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey)
     : null;
+
+if (!supabase) {
+    console.error('❌ Supabase não configurado. Verifique SUPABASE_URL e SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY.');
+} else {
+    console.log('✅ Supabase conectado:', supabaseUrl);
+}
 
 // 🛡️ Filtro simples de palavrões
 const palavroesProibidos = ['puta', 'merda', 'caralho', 'bosta', 'cu', 'fuck', 'shit', 'ass', 'damn'];
@@ -342,6 +350,17 @@ app.post('/api/cadastro', async (req, res) => {
         return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
     }
 
+    // Validar nome
+    if (nome.length < 3) {
+        return res.status(400).json({ error: 'Nome deve ter pelo menos 3 caracteres' });
+    }
+
+    // Contas protegidas que não podem ser criadas via cadastro
+    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
+    if (protectedAccounts.includes(nome)) {
+        return res.status(403).json({ error: 'Este nome de usuário é protegido e não pode ser criado' });
+    }
+
     try {
         const { data: existing } = await supabase
             .from('usuarios')
@@ -353,6 +372,7 @@ app.post('/api/cadastro', async (req, res) => {
             return res.status(409).json({ error: 'Nome de usuário não disponível. Escolha outro.' });
         }
 
+        // Armazenar senha em texto plano (frontend enviará MD5 para comparação no login)
         const { error } = await supabase
             .from('usuarios')
             .insert([{ nome, senha }])
@@ -365,12 +385,12 @@ app.post('/api/cadastro', async (req, res) => {
 
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
     } catch (error) {
-        console.error(error);
+        console.error('Erro ao cadastrar:', error);
         res.status(500).json({ error: 'Erro ao cadastrar usuário' });
     }
 });
 
-// Rota para login (com suporte a Admin sem criptografia)
+// Rota para login (com suporte a Admin com MD5)
 app.post('/api/login', async (req, res) => {
     const { nome, senha } = req.body;
 
@@ -379,9 +399,14 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
+        // MD5 esperadas para contas admin/dev (frontend envia MD5 da senha)
+        const adminMD5 = crypto.createHash('md5').update('administrador_turma205-1').digest('hex');
+        const devMD5 = crypto.createHash('md5').update('dev205-1').digest('hex');
+        const alunoMD5 = crypto.createHash('md5').update('aluno205-1').digest('hex');
+
+        // Conta root do projeto
         if (nome === 'administrador_turma205-1') {
-            const adminSenhaHash = crypto.createHash('md5').update('administrador_turma205-1').digest('hex');
-            if (senha === adminSenhaHash) {
+            if (senha === adminMD5) {
                 return res.json({
                     message: 'Login bem-sucedido!',
                     user: {
@@ -396,31 +421,60 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
+        // Conta do dev local/manual
         if (nome === 'dev205-1') {
-            const devSenhaHash = crypto.createHash('md5').update('dev205-1').digest('hex');
-            if (senha === devSenhaHash) {
+            if (senha === devMD5) {
                 return res.json({
                     message: 'Login bem-sucedido!',
                     user: {
                         id: 'dev',
                         nome: 'dev205-1',
                         role: 'dev',
+                        is_admin: true,
+                        is_root: false
+                    }
+                });
+            }
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Conta aluno padrão
+        if (nome === 'aluno205-1') {
+            if (senha === alunoMD5) {
+                return res.json({
+                    message: 'Login bem-sucedido!',
+                    user: {
+                        id: 'aluno',
+                        nome: 'aluno205-1',
+                        role: 'aluno',
                         is_admin: false,
                         is_root: false
                     }
                 });
             }
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Buscar usuário na base de dados - comparar MD5
+        if (!supabase) {
+            return res.status(503).json({ error: 'Supabase não configurado' });
         }
 
         const { data: user, error } = await supabase
             .from('usuarios')
-            .select('*')
+            .select('id, nome, senha')
             .eq('nome', nome)
-            .eq('senha', senha)
             .limit(1)
             .single();
 
         if (error || !user) {
+            console.warn(`⚠️ Usuário '${nome}' não encontrado no banco de dados`);
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Comparar senha: calcular MD5 da senha armazenada e comparar com o enviado
+        const senhaHash = crypto.createHash('md5').update(user.senha).digest('hex');
+        if (senha !== senhaHash) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
@@ -739,7 +793,7 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
             .single();
 
         if (!checkError && existingComment) {
-            return res.status(400).json({ error: 'Você já comentou nesta imagem/video' });
+            return res.status(400).json({ error: 'Você já comentou aqui. Exclua o comentário anterior para comentar novamente.' });
         }
 
         // Inserir novo comentário
@@ -847,18 +901,36 @@ app.put('/api/usuarios/renomear', async (req, res) => {
 
 // GET users (admin)
 app.get('/api/usuarios', async (req, res) => {
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
+
     try {
+        console.log('📥 Buscando usuários do Supabase...');
         const { data: usuarios, error } = await supabase
             .from('usuarios')
-            .select('id, nome, created, role, is_admin')
-            .order('created', { ascending: false });
+            .select('id, nome, created');
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Erro ao buscar usuários:', error);
+            
+            // Se é erro de tabela não existir, retornar array vazio
+            if (error.code === 'PGRST205' || error.message?.includes('usuarios')) {
+                console.warn('⚠️ Tabela usuarios não encontrada');
+                return res.json([]);
+            }
 
-        res.json(usuarios || []);
+            return res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
+        }
+
+        console.log(`✅ ${usuarios?.length || 0} usuários encontrados`);
+        // Normalizar usuários para incluir role e is_admin baseado em regras de negócio
+        const normalized = usuarios?.map(u => normalizeUser(u)) || [];
+        res.json(normalized);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao listar usuários' });
+        console.error('❌ Erro na rota de usuários:', error.message);
+        res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
     }
 });
 
@@ -1011,42 +1083,6 @@ app.put('/api/site-status', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message || 'Erro ao salvar status do site' });
-    }
-});
-
-// Rota para excluir usuário e seus comentários
-app.delete('/api/usuarios', async (req, res) => {
-    const { id, nome } = req.body;
-
-    if (!id || !nome) {
-        return res.status(400).json({ error: 'ID e nome do usuário são obrigatórios.' });
-    }
-
-    // Contas protegidas que não podem ser excluídas
-    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
-    if (protectedAccounts.includes(nome)) {
-        return res.status(403).json({ error: 'Esta conta não pode ser excluída. É uma conta de sistema.' });
-    }
-
-    try {
-        await supabase
-            .from('comentarios')
-            .delete()
-            .eq('autor', nome);
-
-        await supabase
-            .from('usuarios')
-            .delete()
-            .eq('id', id)
-            .eq('nome', nome);
-
-        // Log: Exclusão de Conta
-        await createLog('CONTAS', 'EXCLUSÃO DE CONTAS', `Conta deletada: ${nome}`);
-
-        res.json({ message: 'Sua conta e todos os seus comentários foram excluídos com sucesso.' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao excluir a conta.' });
     }
 });
 
