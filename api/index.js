@@ -360,6 +360,17 @@ app.post('/api/cadastro', async (req, res) => {
         return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
     }
 
+    // Validar nome
+    if (nome.length < 3) {
+        return res.status(400).json({ error: 'Nome deve ter pelo menos 3 caracteres' });
+    }
+
+    // Contas protegidas que não podem ser criadas via cadastro
+    const protectedAccounts = ['administrador_turma205-1', 'aluno205-1', 'dev205-1'];
+    if (protectedAccounts.includes(nome)) {
+        return res.status(403).json({ error: 'Este nome de usuário é protegido e não pode ser criado' });
+    }
+
     try {
         const { data: existing } = await supabase
             .from('usuarios')
@@ -371,6 +382,7 @@ app.post('/api/cadastro', async (req, res) => {
             return res.status(409).json({ error: 'Nome de usuário não disponível. Escolha outro.' });
         }
 
+        // Armazenar senha em texto plano (frontend enviará MD5 para comparação no login)
         const { error } = await supabase
             .from('usuarios')
             .insert([{ nome, senha }])
@@ -383,7 +395,7 @@ app.post('/api/cadastro', async (req, res) => {
 
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
     } catch (error) {
-        console.error(error);
+        console.error('Erro ao cadastrar:', error);
         res.status(500).json({ error: 'Erro ao cadastrar usuário' });
     }
 });
@@ -397,9 +409,10 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        // MD5 das credenciais admin
+        // MD5 esperadas para contas admin/dev (frontend envia MD5 da senha)
         const adminMD5 = crypto.createHash('md5').update('administrador_turma205-1').digest('hex');
         const devMD5 = crypto.createHash('md5').update('dev205-1').digest('hex');
+        const alunoMD5 = crypto.createHash('md5').update('aluno205-1').digest('hex');
 
         // Conta root do projeto
         if (nome === 'administrador_turma205-1') {
@@ -427,22 +440,46 @@ app.post('/api/login', async (req, res) => {
                         id: 'dev',
                         nome: 'dev205-1',
                         role: 'dev',
+                        is_admin: true,
+                        is_root: false
+                    }
+                });
+            }
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Conta aluno padrão
+        if (nome === 'aluno205-1') {
+            if (senha === alunoMD5) {
+                return res.json({
+                    message: 'Login bem-sucedido!',
+                    user: {
+                        id: 'aluno',
+                        nome: 'aluno205-1',
+                        role: 'aluno',
                         is_admin: false,
                         is_root: false
                     }
                 });
             }
+            return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
+        // Buscar usuário na base de dados - comparar MD5
         const { data: user, error } = await supabase
             .from('usuarios')
             .select('*')
             .eq('nome', nome)
-            .eq('senha', senha)
             .limit(1)
             .single();
 
         if (error || !user) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Comparar senha: calcular MD5 da senha armazenada e comparar com o enviado
+        const senhaHash = crypto.createHash('md5').update(user.senha).digest('hex');
+        if (senha !== senhaHash) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 

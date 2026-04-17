@@ -806,7 +806,7 @@ async function carregarGaleria(page = 0) {
       if (tipoMidia === 'video') {
         const btnDownload = isAdmin ? `
           <div class="galeria-video-controls" style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-            <button onclick="downloadMidia('${item.url}', '${nomeArquivo}${extension}')" class="btn-download" style="
+            <button onclick="downloadMidia('${nomeArquivo}${extension}', '${item.url}')" class="btn-download" style="
               flex: 1; padding: 0.5rem; background: linear-gradient(135deg, #3b82f6, #2563eb); 
               color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;
             ">
@@ -825,7 +825,7 @@ async function carregarGaleria(page = 0) {
         `;
       } else {
         const btnDownload = isAdmin ? `
-          <button onclick="downloadMidia('${item.url}', '${nomeArquivo}${extension}')" class="btn-download-pequeno" style="
+          <button onclick="downloadMidia('${nomeArquivo}${extension}', '${item.url}')" class="btn-download-pequeno" style="
             position: absolute; bottom: 0.5rem; right: 0.5rem;
             background: rgba(0,0,0,0.6); color: white; border: none; 
             padding: 0.5rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
@@ -1187,7 +1187,7 @@ function renderizarVidoUrl(url) {
   </video>`;
 }
 
-function downloadMidia(nomeArquivo, url) {
+async function downloadMidia(nomeArquivo, url) {
   // Verificar se é admin
   const usuarioRaw = localStorage.getItem('usuarioLogado');
   const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
@@ -1203,22 +1203,26 @@ function downloadMidia(nomeArquivo, url) {
     return;
   }
   
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = nomeArquivo;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  
-  // Verificar se é URL de domínio diferentes (CORS)
   try {
+    // Usar fetch para arquivos cross-origin (Supabase)
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Erro ao baixar: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = nomeArquivo;
+    link.style.display = 'none';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
   } catch (e) {
     console.error('Erro ao baixar:', e);
-    // Se falhar, abre em nova aba
-    window.open(url, '_blank');
+    alert('Erro ao baixar arquivo. Tente novamente.');
   }
-  
-  document.body.removeChild(link);
 }
 
 // Carregar Descrição da Turma
