@@ -353,41 +353,35 @@ function updatePermissions() {
         }
     }
 
-    // Mostrar/esconder formulário de atualizações - apenas dev pode editar
+    // Dev e Admin têm as mesmas permissões
+    const isAdmin = userRole === 'admin' || userRole === 'dev';
+    
+    // Mostrar/esconder formulário de atualizações - admin e dev podem editar
     if (formContainer) {
-        if (userRole === 'dev') {
+        if (isAdmin) {
             formContainer.style.display = 'block';
         } else {
             formContainer.style.display = 'none';
         }
     }
 
-    // Mostrar/esconder botões de ação - apenas dev pode deletar/exportar
+    // Mostrar/esconder botões de ação - admin e dev podem deletar/exportar
     if (actionsDiv) {
-        if (userRole === 'dev') {
+        if (isAdmin) {
             actionsDiv.style.display = 'flex';
         } else {
             actionsDiv.style.display = 'none';
         }
     }
 
-    // Mostrar aviso para admin que não pode editar
+    // Remover aviso de admin (agora admin e dev têm as mesmas permissões)
     if (adminWarning) {
-        if (userRole === 'admin') {
-            adminWarning.style.display = 'block';
-        } else {
-            adminWarning.style.display = 'none';
-        }
+        adminWarning.style.display = 'none';
     }
 
-    // Bloquear cursor na seção de banco de dados para administradores normais
+    // Liberar banco de dados para admin e dev
     if (databaseContent) {
-        if (userRole === 'admin') {
-            databaseContent.classList.add('cursor-blocked');
-            databaseContent.style.cursor = 'not-allowed';
-            databaseContent.style.pointerEvents = 'none';
-            databaseContent.style.opacity = '0.6';
-        } else {
+        if (isAdmin) {
             databaseContent.classList.remove('cursor-blocked');
             databaseContent.style.cursor = '';
             databaseContent.style.pointerEvents = '';

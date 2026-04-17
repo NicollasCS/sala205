@@ -473,14 +473,13 @@ document.getElementById('btnEnviarComentario').onclick = async function() {
   }
 };
 
-// Auto-reload comments every 10s
+// Auto-reload comments - DESABILITADO (atualiza apenas após ações)
 function startPolling() {
-  commentsPollingInterval = setInterval(() => {
-    carregarComentarios();
-  }, 10000);
+  // setInterval desabilitado - comentários atualizam apenas após novas ações
+  // Para atualizar manualmente, chamar carregarComentarios()
 }
 
-startPolling();
+// startPolling(); // DESABILITADO
 
 // ============ FUNÇÕES DE CONFIGURAÇÃO DO PERFIL ============
 

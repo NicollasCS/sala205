@@ -6,7 +6,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   const calendarioAluno = document.getElementById('calendarioAluno');
   const carregando = document.getElementById('carregandoCalendario');
 
-  if (!usuario || usuario.nome !== 'aluno205-1') {
+  // Permitir aluno205-1, dev205-1 e admins
+  const isAuthorized = usuario && (
+    usuario.nome === 'aluno205-1' || 
+    usuario.nome === 'dev205-1' || 
+    usuario.nome === 'administrador_turma205-1' ||
+    usuario.is_admin ||
+    usuario.is_root
+  );
+  
+  if (!isAuthorized) {
     acessoNegado.style.display = 'block';
     calendarioAluno.style.display = 'none';
     carregando.style.display = 'none';
