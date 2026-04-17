@@ -637,26 +637,43 @@ app.put('/api/comentarios/:id', async (req, res) => {
 app.delete('/api/comentarios/meus/:id', async (req, res) => {
     const { id } = req.params;
     const { autor } = req.body;
+    
+    console.log(`🗑️ DELETE /api/comentarios/meus/:id - ID: ${id}, Autor: ${autor}`);
 
     if (!autor) {
+        console.warn('⚠️ Autor não fornecido no body');
         return res.status(400).json({ error: 'Autor é obrigatório para verificação.' });
     }
 
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
+
     try {
+        console.log(`📥 Buscando comentário ID: ${id}`);
         const { data: comentario, error: fetchError } = await supabase
             .from('comentarios')
             .select('autor')
             .eq('id', id)
             .single();
 
-        if (fetchError || !comentario) {
+        if (fetchError) {
+            console.error(`❌ Erro ao buscar comentário:`, fetchError);
+            return res.status(404).json({ error: 'Comentário não encontrado.', details: fetchError.message });
+        }
+
+        if (!comentario) {
+            console.warn(`⚠️ Comentário ID ${id} não encontrado`);
             return res.status(404).json({ error: 'Comentário não encontrado.' });
         }
 
         if (comentario.autor !== autor) {
+            console.warn(`⚠️ Acesso negado - comentário autor: ${comentario.autor}, solicitante: ${autor}`);
             return res.status(403).json({ error: 'Acesso negado. Você só pode excluir seus próprios comentários.' });
         }
 
+        console.log(`🔄 Deletando comentário ID: ${id}`);
         const { error } = await supabase
             .from('comentarios')
             .delete()
@@ -664,10 +681,11 @@ app.delete('/api/comentarios/meus/:id', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ Comentário ${id} excluído com sucesso`);
         res.json({ message: 'Comentário excluído com sucesso.' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao excluir comentário' });
+        console.error(`❌ Erro ao excluir comentário:`, error);
+        res.status(500).json({ error: 'Erro ao excluir comentário', details: error.message });
     }
 });
 
@@ -699,20 +717,32 @@ app.delete('/api/comentarios/:id', async (req, res) => {
 // GET comentários de uma imagem/video
 app.get('/api/galeria/:galeriaId/comentarios', async (req, res) => {
     const { galeriaId } = req.params;
+    
+    console.log(`📖 GET /api/galeria/:galeriaId/comentarios - Galeria ID: ${galeriaId}`);
+
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
 
     try {
+        console.log(`📥 Buscando comentários para galeria ID: ${galeriaId}`);
         const { data, error } = await supabase
             .from('comentarios_galeria')
             .select('*')
             .eq('galeria_id', galeriaId)
             .order('criado', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ Erro ao buscar comentários:`, error);
+            return res.status(500).json({ error: 'Erro ao buscar comentários', details: error.message });
+        }
 
+        console.log(`✅ ${data?.length || 0} comentários encontrados para galeria ${galeriaId}`);
         res.json(data || []);
     } catch (error) {
-        console.error('Erro ao buscar comentários:', error);
-        res.status(500).json({ error: 'Erro ao buscar comentários' });
+        console.error(`❌ Erro ao buscar comentários:`, error);
+        res.status(500).json({ error: 'Erro ao buscar comentários', details: error.message });
     }
 });
 
@@ -720,21 +750,32 @@ app.get('/api/galeria/:galeriaId/comentarios', async (req, res) => {
 app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
     const { galeriaId } = req.params;
     const { autor, texto } = req.body;
+    
+    console.log(`✍️ POST /api/galeria/:galeriaId/comentarios - Galeria ID: ${galeriaId}, Autor: ${autor}`);
+
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
 
     if (!autor || !texto) {
+        console.warn(`⚠️ Dados incompletos - autor: ${autor}, texto: ${texto?.substring(0, 20) || 'N/A'}`);
         return res.status(400).json({ error: 'Autor e texto são obrigatórios' });
     }
 
     if (texto.length > 100) {
+        console.warn(`⚠️ Texto muito longo: ${texto.length} caracteres (máximo 100)`);
         return res.status(400).json({ error: 'Comentário muito longo. Máximo 100 caracteres.' });
     }
 
     if (texto.trim().length === 0) {
+        console.warn(`⚠️ Texto vazio ou só com espaços`);
         return res.status(400).json({ error: 'Comentário não pode estar vazio' });
     }
 
     // 🛡️ Validar palavrões
     if (profanityFilterIsProfane(texto)) {
+        console.warn(`⚠️ Texto contém palavrões: ${texto}`);
         return res.status(400).json({ error: 'Comentário contém linguagem inadequada. Por favor, revise.' });
     }
 
@@ -748,9 +789,11 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
             .single();
 
         if (!checkError && existingComment) {
+            console.warn(`⚠️ Usuário ${autor} já comentou na galeria ${galeriaId}`);
             return res.status(400).json({ error: 'Você já comentou nesta imagem/video' });
         }
 
+        console.log(`🔄 Inserindo novo comentário na galeria ${galeriaId}`);
         // Inserir novo comentário
         const { data: novoComentario, error } = await supabase
             .from('comentarios_galeria')
@@ -765,10 +808,11 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ Novo comentário criado na galeria ${galeriaId} por ${autor}`);
         res.status(201).json(novoComentario);
     } catch (error) {
-        console.error('Erro ao criar comentário:', error);
-        res.status(500).json({ error: 'Erro ao criar comentário' });
+        console.error('❌ Erro ao criar comentário:', error);
+        res.status(500).json({ error: 'Erro ao criar comentário', details: error.message });
     }
 });
 
@@ -776,12 +820,21 @@ app.post('/api/galeria/:galeriaId/comentarios', async (req, res) => {
 app.delete('/api/galeria/comentarios/:comentarioId', async (req, res) => {
     const { comentarioId } = req.params;
     const { autor } = req.body;
+    
+    console.log(`🗑️ DELETE /api/galeria/comentarios/:comentarioId - Comentário ID: ${comentarioId}, Autor: ${autor}`);
 
     if (!autor) {
+        console.warn(`⚠️ Autor não fornecido no body`);
         return res.status(400).json({ error: 'Autor é obrigatório' });
     }
 
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
+
     try {
+        console.log(`📥 Buscando comentário ID: ${comentarioId}`);
         // Verificar se comentário pertence ao usuário
         const { data: comentario, error: checkError } = await supabase
             .from('comentarios_galeria')
@@ -790,15 +843,18 @@ app.delete('/api/galeria/comentarios/:comentarioId', async (req, res) => {
             .single();
 
         if (checkError || !comentario) {
+            console.warn(`⚠️ Comentário ID ${comentarioId} não encontrado`);
             return res.status(404).json({ error: 'Comentário não encontrado' });
         }
 
         // Apenas o autor ou admin podem deletar
         const isAdmin = autor === 'administrador_turma205-1';
         if (comentario.autor !== autor && !isAdmin) {
+            console.warn(`⚠️ Acesso negado - comentário autor: ${comentario.autor}, solicitante: ${autor}`);
             return res.status(403).json({ error: 'Você não pode deletar este comentário' });
         }
 
+        console.log(`🔄 Deletando comentário ID: ${comentarioId}`);
         const { error } = await supabase
             .from('comentarios_galeria')
             .delete()
@@ -806,10 +862,11 @@ app.delete('/api/galeria/comentarios/:comentarioId', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ Comentário ${comentarioId} deletado com sucesso`);
         res.json({ message: 'Comentário deletado' });
     } catch (error) {
-        console.error('Erro ao deletar comentário:', error);
-        res.status(500).json({ error: 'Erro ao deletar comentário' });
+        console.error(`❌ Erro ao deletar comentário:`, error);
+        res.status(500).json({ error: 'Erro ao deletar comentário', details: error.message });
     }
 });
 
@@ -2117,8 +2174,33 @@ app.get('/cadastro', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/auth/cadastro/cadastro.html'));
 });
 
+console.log('📋 Rotas Express registradas:');
+console.log('  - GET /api/health');
+console.log('  - POST /api/cadastro');
+console.log('  - POST /api/login');
+console.log('  - GET /api/comentarios');
+console.log('  - POST /api/comentarios');
+console.log('  - POST /api/comentarios/:id/react');
+console.log('  - PUT /api/comentarios/:id/pin');
+console.log('  - PUT /api/comentarios/:id');
+console.log('  - DELETE /api/comentarios/meus/:id');
+console.log('  - DELETE /api/comentarios/:id');
+console.log('  - GET /api/galeria/:galeriaId/comentarios');
+console.log('  - POST /api/galeria/:galeriaId/comentarios');
+console.log('  - DELETE /api/galeria/comentarios/:comentarioId');
+console.log('  - PUT /api/usuarios/renomear');
+console.log('  - GET /api/usuarios');
+console.log('  - POST /api/admin-requests');
+console.log('  - GET /api/admin-requests');
+console.log('  - PUT /api/admin-requests/:id');
+console.log('  - GET /api/site-status');
+console.log('  - PUT /api/site-status');
+console.log('  - DELETE /api/usuarios');
+console.log('  - [mais rotas...]');
+
 // Catchall: retornar 404 JSON (não tentar servir arquivos em serverless)
 app.use((req, res) => {
+    console.warn(`⚠️ 404 - Rota não encontrada: ${req.method} ${req.path}`);
     res.status(404).json({ 
         error: 'Rota não encontrada. Use uma rota /api/...',
         path: req.path,
