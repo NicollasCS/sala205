@@ -84,15 +84,11 @@ CREATE INDEX IF NOT EXISTS idx_comentarios_galeria_autor ON comentarios_galeria(
 -- ============================================
 CREATE TABLE IF NOT EXISTS descricao_turma (
     id BIGSERIAL PRIMARY KEY,
-    titulo TEXT NOT NULL DEFAULT 'Sala 205',
-    descricao TEXT,
-    updated TIMESTAMP DEFAULT now()
+    descricao TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Inserir valor padrão
-INSERT INTO descricao_turma (titulo, descricao) 
-VALUES ('Sala 205 - Anexo Irmã Maria Teresa', 'Bem-vindo ao calendário da turma 205!')
-ON CONFLICT DO NOTHING;
+-- ⚠️ Se a tabela já existe com outro schema, ajuste manualmente as colunas
 
 -- ============================================
 -- 7️⃣ TABELA: app_settings
@@ -103,23 +99,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated TIMESTAMP DEFAULT now()
 );
 
--- Configurações padrão
-INSERT INTO app_settings (key, value) VALUES 
-    ('theme', 'light'),
-    ('color_scheme', 'blue'),
-    ('maintenance_mode', 'false'),
-    ('max_file_size_mb', '50')
-ON CONFLICT (key) DO NOTHING;
-
 -- ============================================
 -- 8️⃣ TABELA: admin_requests
 -- ============================================
 CREATE TABLE IF NOT EXISTS admin_requests (
     id BIGSERIAL PRIMARY KEY,
     requested_user_id BIGINT REFERENCES usuarios(id) ON DELETE CASCADE,
-    status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    status TEXT DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
+    updated_at TIMESTAMP DEFAULT now(),
+    reviewed_at TIMESTAMP,
+    reviewed_by_name TEXT,
+    review_reason TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_admin_requests_status ON admin_requests(status);
