@@ -18,7 +18,8 @@ export async function getTextos(req, res) {
 
         if (error?.message?.includes('textos_pagina')) {
             return res.status(503).json({ 
-                error: 'Tabela textos_pagina não configurada.' 
+                error: 'Tabela textos_pagina não configurada no Supabase.',
+                setup: 'Execute: node src/setup_textos_pagina.js ou veja docs/TEXTOS_PAGINA_SETUP.md'
             });
         }
 
@@ -73,7 +74,8 @@ export async function updateTextos(req, res) {
 
         if (error?.message?.includes('textos_pagina')) {
             return res.status(503).json({ 
-                error: 'Tabela textos_pagina não configurada.' 
+                error: 'Tabela textos_pagina não configurada no Supabase.',
+                setup: 'Execute: node src/setup_textos_pagina.js ou veja docs/TEXTOS_PAGINA_SETUP.md'
             });
         }
 
