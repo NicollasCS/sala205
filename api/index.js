@@ -1376,10 +1376,16 @@ app.post('/api/galeria/video-upload', async (req, res) => {
                 }
 
                 // Obter URL pública do vídeo
-                const { data: { publicUrl } } = supabase
+                const urlData = supabase
                     .storage
                     .from('galeria-videos')
                     .getPublicUrl(videoFilename);
+                
+                if (!urlData || !urlData.data || !urlData.data.publicUrl) {
+                    throw new Error('Falha ao gerar URL pública do vídeo');
+                }
+                
+                const publicUrl = urlData.data.publicUrl;
 
                 await ensureGaleriaPositions();
 

@@ -138,7 +138,9 @@ function atualizarStatusLogin() {
     const configBtnHTML = isAdmin ? '' : `<button class="config-btn" onclick="toggleConfigMenu(event)" title="Configurações" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; margin-left: 0.5rem;">
       <i class="fas fa-cog"></i>
     </button>`;
-    welcomeEl.innerHTML = `👋 Bem-vindo, <strong>${u.nome}</strong>! ${configBtnHTML}`;
+    // Escape user name to prevent XSS
+    const escapedName = (u.nome || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    welcomeEl.innerHTML = `👋 Bem-vindo, <strong>${escapedName}</strong>! ${configBtnHTML}`;
     welcomeEl.style.display = 'block';
     
     // Criar menu de configurações se não existe
@@ -353,7 +355,9 @@ async function carregarComentarios(scrollToNew = false) {
         btn.onclick = async (e) => {
           const emoji = btn.dataset.emoji;
           const commentId = btn.dataset.commentId;
-          const user = JSON.parse(localStorage.getItem('usuarioLogado'));
+          const userRaw = localStorage.getItem('usuarioLogado');
+          if (!userRaw) return alert('Faça login para reagir');
+          const user = JSON.parse(userRaw);
           if (!user) return alert('Faça login para reagir');
 
           await fetch(`/api/comentarios/${commentId}/react`, {
@@ -395,7 +399,12 @@ function formatRelativeTime(date) {
 async function excluirComentario(id) {
   if (confirm('Excluir este comentário?')) {
     try {
-      const usuario = JSON.parse(localStorage.getItem('usuarioLogado'));
+      const usuarioRaw = localStorage.getItem('usuarioLogado');
+      if (!usuarioRaw) {
+        alert('Você precisa estar logado');
+        return;
+      }
+      const usuario = JSON.parse(usuarioRaw);
       await fetch(`/api/comentarios/meus/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -1069,16 +1078,6 @@ async function enviarComentarioForm(galeriaId, event) {
   }
 }
 
-function carregarProximaPaginaGaleria() {
-  carregarGaleria(galeriaAtualPage + 1);
-}
-
-function carregarPaginaAnteriorGaleria() {
-  if (galeriaAtualPage > 0) {
-    carregarGaleria(galeriaAtualPage - 1);
-  }
-}
-
 async function carregarCalendario() {
   const container = document.getElementById('calendarioContainer');
   const secaoCalendario = document.getElementById('secaoCalendario');
@@ -1147,7 +1146,9 @@ async function carregarCalendario() {
     `;
   } catch (e) {
     console.error('Erro ao carregar calendário:', e);
-    container.innerHTML = `<div class="error-text">Erro ao carregar calendário: ${e.message}</div>`;
+    // Escape error message to prevent XSS
+    const escapedError = (e.message || 'Erro desconhecido').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    container.innerHTML = `<div class="error-text">Erro ao carregar calendário: ${escapedError}</div>`;
   }
 }
 
@@ -1233,7 +1234,16 @@ async function carregarDescricaoTurma() {
     const container = document.getElementById('descricaoTurma');
     
     if (data && data.descricao) {
-      container.innerHTML = `<p>${data.descricao.split('\n').join('</p><p>')}</p>`;
+      // Sanitize HTML and preserve line breaks
+      const escaped = data.descricao
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .split('\n')
+        .join('</p><p>');
+      container.innerHTML = `<p>${escaped}</p>`;
     } else {
       container.innerHTML = '<p>Descrição da turma indisponível no momento.</p>';
     }
