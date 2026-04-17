@@ -20,12 +20,6 @@ function salvarTema(tema) {
     aplicarTema(tema);
 }
 
-function aplicarTema(tema) {
-    document.body.classList.remove('theme-green', 'theme-blue');
-    if (tema === 'green') {
-        document.body.classList.add('theme-green');
-    }
-}
 
 function carregarTema() {
     const temaArmazenado = localStorage.getItem('tema') || 'green';
@@ -132,11 +126,6 @@ async function verificarSessao() {
         qs('loginScreen').style.display = 'block';
         qs('adminPanel').style.display = 'none';
     }
-}
-
-function carregarTema() {
-    const temaArmazenado = localStorage.getItem('tema') || 'blue';
-    aplicarTema(temaArmazenado);
 }
 
 window.mudarTema = function(tema) {
