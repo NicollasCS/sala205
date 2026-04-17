@@ -375,7 +375,7 @@ app.post('/api/cadastro', async (req, res) => {
     }
 });
 
-// Rota para login (com suporte a Admin sem criptografia)
+// Rota para login (com suporte a Admin com MD5)
 app.post('/api/login', async (req, res) => {
     const { nome, senha } = req.body;
 
@@ -384,9 +384,13 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
+        // MD5 das credenciais admin
+        const adminMD5 = crypto.createHash('md5').update('administrador_turma205-1').digest('hex');
+        const devMD5 = crypto.createHash('md5').update('dev205-1').digest('hex');
+
         // Conta root do projeto
         if (nome === 'administrador_turma205-1') {
-            if (senha === 'administrador_turma205-1') {
+            if (senha === adminMD5) {
                 return res.json({
                     message: 'Login bem-sucedido!',
                     user: {
@@ -403,7 +407,7 @@ app.post('/api/login', async (req, res) => {
 
         // Conta do dev local/manual
         if (nome === 'dev205-1') {
-            if (senha === 'dev205-1') {
+            if (senha === devMD5) {
                 return res.json({
                     message: 'Login bem-sucedido!',
                     user: {
