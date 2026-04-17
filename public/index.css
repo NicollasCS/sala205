@@ -204,7 +204,7 @@ body.dark-mode .navbar {
 .hero-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.35);
+    background: rgba(15, 23, 42, 0.25);
     z-index: -1;
 }
 
@@ -837,6 +837,75 @@ section {
     color: white;
     border-color: var(--primary);
     transform: scale(1.05);
+}
+
+/* ============================================
+   THEME SELECTOR (NAVBAR)
+   ============================================ */
+
+.theme-selector-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-selector-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: scale(1.05);
+}
+
+.tema-selector {
+    position: absolute;
+    top: 50px;
+    right: 50px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    animation: slideDown 0.3s ease-out;
+}
+
+.tema-opt {
+    background: var(--bg-secondary);
+    border: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.tema-opt:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary);
+}
+
+.tema-opt.azul-opt:active {
+    border-color: #3b82f6;
+}
+
+.tema-opt.verde-opt:active {
+    border-color: #10b981;
 }
 
 /* ============================================

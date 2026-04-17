@@ -733,6 +733,44 @@ function aplicarTema(tema) {
 }
 
 // ============================================
+// THEME SELECTOR (NAVBAR)
+// ============================================
+
+window.toggleTemaSelector = function() {
+    const selector = document.getElementById('temaSelector');
+    if (selector) {
+        selector.style.display = selector.style.display === 'none' ? 'flex' : 'none';
+    }
+};
+
+window.mudarTema = function(tema) {
+    salvarTema(tema === 'azul' ? 'blue' : 'green');
+    toggleTemaSelector();
+};
+
+// ============================================
+// ADMIN PANEL ACCESS
+// ============================================
+
+function atualizarMenuAdmin() {
+    const usuarioRaw = localStorage.getItem('usuarioLogado');
+    const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+    const opAdmin = document.getElementById('opAdmin');
+    const temaBtn = document.querySelector('.theme-selector-btn');
+    
+    if (usuario && (usuario.tipoUsuario === 'admin' || usuario.tipoUsuario === 'dev' || usuario.usuario === 'administrator_turma205')) {
+        if (opAdmin) {
+            opAdmin.style.display = 'flex';
+        }
+    }
+    
+    // Mostrar seletor de temas no navbar quando logado
+    if (usuario && temaBtn) {
+        temaBtn.style.display = 'inline-block';
+    }
+}
+
+// ============================================
 // PAGE INITIALIZATION
 // ============================================
 
@@ -752,6 +790,7 @@ window.addEventListener('DOMContentLoaded', function() {
     
     // Initialize components
     atualizarStatusLogin();
+    atualizarMenuAdmin();
     initPopupDrag();
     initSidebar();
     initCharCounter();

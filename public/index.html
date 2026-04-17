@@ -30,6 +30,13 @@
                 <button class="theme-toggle-btn" onclick="toggleDarkMode()" title="Alternar modo escuro/claro">
                     <i class="fas fa-moon"></i>
                 </button>
+                <button class="theme-selector-btn" onclick="toggleTemaSelector()" title="Selecionar tema (Azul ou Verde)" style="display: none;">
+                    <i class="fas fa-palette"></i>
+                </button>
+                <div id="temaSelector" class="tema-selector" style="display: none;">
+                    <button onclick="mudarTema('azul')" class="tema-opt azul-opt"><i class="fas fa-circle" style="color: #3b82f6;"></i> Azul</button>
+                    <button onclick="mudarTema('verde')" class="tema-opt verde-opt"><i class="fas fa-circle" style="color: #10b981;"></i> Verde</button>
+                </div>
                 <div id="usuarioContainer" class="usuario-container" style="display: none;">
                     <span id="nomeUsuarioNav" class="nome-usuario">Olá, Usuário</span>
                     <button id="botaoSettings" class="btn-settings" onclick="toggleSettingsMenu()" title="Configurações">
@@ -42,8 +49,11 @@
                         <a href="#" onclick="abrirMudaSenha(event)" class="settings-item">
                             <i class="fas fa-lock"></i> Mudar senha
                         </a>
-                        <a href="#" onclick="abrirMudarTema(event)" class="settings-item">
+                        <a href="#" onclick="abrirMudarTema(event)" class="settings-item" id="opMudarTema">
                             <i class="fas fa-palette"></i> Mudar tema
+                        </a>
+                        <a href="/auth/admin/admin.html" class="settings-item" id="opAdmin" style="display: none;">
+                            <i class="fas fa-crown"></i> Painel Admin
                         </a>
                         <a href="#" onclick="abrirPolitica(event)" class="settings-item">
                             <i class="fas fa-file-contract"></i> Política de privacidade
