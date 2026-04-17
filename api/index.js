@@ -339,6 +339,19 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Debug endpoint - listar rotas disponiveis
+app.get('/api/debug/routes', (req, res) => {
+    res.json({
+        message: 'Rotas de comentários disponíveis',
+        routes: {
+            'DELETE /api/comentarios/meus/:id': 'Deletar comentário do usuário',
+            'GET /api/galeria/:galeriaId/comentarios': 'Buscar comentários de uma galeria',
+            'POST /api/galeria/:galeriaId/comentarios': 'Criar comentário em galeria',
+            'DELETE /api/galeria/comentarios/:comentarioId': 'Deletar comentário de galeria'
+        }
+    });
+});
+
 // Rota para cadastro
 app.post('/api/cadastro', async (req, res) => {
     const { nome, senha } = req.body;
