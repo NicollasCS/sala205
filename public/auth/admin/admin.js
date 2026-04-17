@@ -563,13 +563,16 @@ window.togglePin = async (id) => {
 async function loadUsers() {
     try {
         const res = await apiFetch('/api/usuarios');
-        if (!res.ok) throw new Error(`Falha ao buscar usuários (${res.status})`);
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(`Erro ao buscar usuários (${res.status}): ${errorData.error || res.statusText}`);
+        }
 
         const users = await res.json();
         const container = qs('users-list');
         const counter = qs('users-count');
 
-        if (!Array.isArray(users)) throw new Error('Formato de dados inválido');
+        if (!Array.isArray(users)) throw new Error('Formato de dados inválido - esperado array');
 
         counter.textContent = `${users.length} contas`;
 
@@ -590,8 +593,8 @@ async function loadUsers() {
             </div>
         `).join('');
     } catch (e) {
-        console.error(e);
-        qs('users-list').innerHTML = `<p class="error-text">Erro ao carregar contas: ${e.message}</p>`;
+        console.error('Erro ao carregar usuários:', e);
+        qs('users-list').innerHTML = `<p class="error-text">❌ Erro ao carregar contas: ${e.message}</p>`;
     }
 }
 
@@ -1832,9 +1835,16 @@ async function loadDatabase() {
 
         // Buscar lista de tabelas
         const tablesRes = await apiFetch('/api/database/tables');
-        if (!tablesRes.ok) throw new Error('Erro ao buscar tabelas');
+        if (!tablesRes.ok) {
+            const errorData = await tablesRes.json();
+            throw new Error(`Erro ao buscar tabelas (${tablesRes.status}): ${errorData.error || 'Erro desconhecido'}`);
+        }
         
         const { tables } = await tablesRes.json();
+        if (!Array.isArray(tables)) {
+            throw new Error('Resposta inválida: lista de tabelas não é um array');
+        }
+
         const isDev = localStorage.getItem('userRole') === 'dev';
 
         // Buscar dados de cada tabela
@@ -1845,9 +1855,30 @@ async function loadDatabase() {
                 if (res.ok) {
                     const data = await res.json();
                     tablesData.push(data);
+                } else {
+                    const errorData = await res.json();
+                    console.warn(`Erro ao buscar dados de ${table}:`, errorData);
+                    // Ainda assim adicionar tabela vazia
+                    tablesData.push({
+                        tableName: table,
+                        data: [],
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                        pages: 0
+                    });
                 }
             } catch (e) {
                 console.warn(`Erro ao buscar dados de ${table}:`, e);
+                // Adicionar tabela vazia como fallback
+                tablesData.push({
+                    tableName: table,
+                    data: [],
+                    total: 0,
+                    limit: 10,
+                    offset: 0,
+                    pages: 0
+                });
             }
         }
 

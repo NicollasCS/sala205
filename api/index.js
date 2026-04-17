@@ -857,23 +857,40 @@ app.put('/api/usuarios/renomear', async (req, res) => {
 // GET users (admin)
 app.get('/api/usuarios', async (req, res) => {
     if (!supabase) {
-        return res.status(503).json({ error: 'Supabase não configurado' });
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado - SUPABASE_URL ou SUPABASE_KEY faltando' });
     }
 
     try {
+        console.log('📥 Buscando usuários do Supabase...');
         const { data: usuarios, error } = await supabase
             .from('usuarios')
             .select('id, nome, created, role, is_admin')
             .order('created', { ascending: false });
 
         if (error) {
-            console.error('Erro ao listar usuários:', error);
-            return res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
+            console.error('❌ Erro Supabase ao listar usuários:', {
+                code: error.code,
+                message: error.message,
+                details: error.details
+            });
+
+            // Se é erro de tabela não existir, retornar array vazio
+            if (error.code === 'PGRST205' || error.message?.includes('usuarios')) {
+                console.warn('⚠️ Tabela usuarios não encontrada, retornando array vazio');
+                return res.json([]);
+            }
+
+            return res.status(500).json({ 
+                error: `Erro ao listar usuários: ${error.message}`,
+                code: error.code 
+            });
         }
 
+        console.log(`✅ ${usuarios?.length || 0} usuários encontrados`);
         res.json(usuarios || []);
     } catch (error) {
-        console.error('Erro na rota de usuários:', error);
+        console.error('❌ Erro na rota de usuários:', error);
         res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
     }
 });
@@ -1887,23 +1904,34 @@ app.delete('/api/logs', async (req, res) => {
 // Listar tabelas do banco
 app.get('/api/database/tables', async (req, res) => {
     if (!isAdminToken(req)) {
-        return res.status(401).json({ error: 'Acesso negado' });
+        console.warn('⚠️ Acesso negado - token inválido');
+        return res.status(401).json({ error: 'Acesso negado - token de admin inválido' });
+    }
+
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
     }
 
     try {
+        console.log('📥 Buscando tabelas do Supabase...');
         const { data, error } = await supabase.rpc('get_table_names', {});
         
         if (error) {
+            console.warn('⚠️ RPC get_table_names não disponível:', error.message);
             // Se RPC não existe, retornar tabelas conhecidas
             const tabelas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+            console.log('✅ Retornando tabelas conhecidas:', tabelas);
             return res.json({ tables: tabelas });
         }
 
+        console.log('✅ Tabelas do RPC:', data);
         res.json({ tables: data || [] });
     } catch (error) {
-        console.error('Erro ao listar tabelas:', error);
+        console.error('❌ Erro ao listar tabelas:', error);
         // Retornar tabelas conhecidas como fallback
         const tabelas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
+        console.log('✅ Fallback: retornando tabelas conhecidas');
         res.json({ tables: tabelas });
     }
 });
@@ -1911,7 +1939,11 @@ app.get('/api/database/tables', async (req, res) => {
 // Buscar conteúdo de uma tabela específica
 app.get('/api/database/table/:tableName', async (req, res) => {
     if (!isAdminToken(req)) {
-        return res.status(401).json({ error: 'Acesso negado' });
+        return res.status(401).json({ error: 'Acesso negado - token inválido' });
+    }
+
+    if (!supabase) {
+        return res.status(503).json({ error: 'Supabase não configurado' });
     }
 
     const { tableName } = req.params;
@@ -1922,17 +1954,44 @@ app.get('/api/database/table/:tableName', async (req, res) => {
     const tabelasPermitidas = ['usuarios', 'comentarios', 'galeria', 'calendario', 'descricao_turma', 'logs'];
     
     if (!tabelasPermitidas.includes(tableName)) {
-        return res.status(400).json({ error: 'Tabela não permitida' });
+        return res.status(400).json({ error: `Tabela não permitida: ${tableName}` });
     }
 
     try {
+        console.log(`📥 Buscando dados da tabela: ${tableName} (limit=${limit}, offset=${offset})`);
+        
         const { data, error, count } = await supabase
             .from(tableName)
             .select('*', { count: 'exact' })
             .range(offset, offset + limit - 1);
 
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ Erro ao buscar dados de ${tableName}:`, {
+                code: error.code,
+                message: error.message,
+                details: error.details
+            });
+            
+            // Se tabela não existe, retornar dados vazios
+            if (error.code === 'PGRST205' || error.message?.includes('relation')) {
+                console.warn(`⚠️ Tabela ${tableName} não encontrada, retornando dados vazios`);
+                return res.json({
+                    tableName,
+                    data: [],
+                    total: 0,
+                    limit,
+                    offset,
+                    pages: 0
+                });
+            }
+            
+            return res.status(500).json({ 
+                error: `Erro ao buscar dados da tabela ${tableName}: ${error.message}`,
+                code: error.code
+            });
+        }
 
+        console.log(`✅ ${data?.length || 0} registros encontrados em ${tableName}`);
         res.json({
             tableName,
             data: data || [],
@@ -1942,8 +2001,8 @@ app.get('/api/database/table/:tableName', async (req, res) => {
             pages: Math.ceil((count || 0) / limit)
         });
     } catch (error) {
-        console.error(`Erro ao buscar dados de ${tableName}:`, error);
-        res.status(500).json({ error: `Erro ao buscar dados da tabela ${tableName}` });
+        console.error(`❌ Erro na rota de busca da tabela ${tableName}:`, error);
+        res.status(500).json({ error: `Erro ao buscar dados da tabela ${tableName}: ${error.message}` });
     }
 });
 
