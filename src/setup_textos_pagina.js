@@ -20,107 +20,63 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function setupTextosTable() {
     try {
-        console.log('📝 Criando tabela textos_pagina...');
+        console.log('📝 Verificando/Criando tabela textos_pagina...');
 
-        // SQL para criar a tabela
-        const sql = `
-            -- Criar tabela textos_pagina
-            CREATE TABLE IF NOT EXISTS textos_pagina (
-                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-                
-                -- Textos da Hero Section
-                tituloMain TEXT DEFAULT 'Sala 205 - Anexo',
-                subtituloMain TEXT DEFAULT 'Irmã Maria Teresa (EEBIMT)',
-                descricaoHero TEXT DEFAULT 'Conheça a história, memórias e projetos da nossa turma',
-                btnExplorar TEXT DEFAULT 'Explorar',
-                
-                -- Textos da Galeria
-                tituloGaleria TEXT DEFAULT 'Galeria de Fotos',
-                subtituloGaleria TEXT DEFAULT 'Momentos especiais da Sala 205',
-                
-                -- Textos da Comunidade
-                tituloComunidade TEXT DEFAULT 'Participe da Comunidade',
-                subtituloComunidade TEXT DEFAULT 'Conecte-se com seus colegas de turma',
-                
-                -- Textos dos Blocos de Funcionalidades
-                comentarios TEXT DEFAULT 'Deixe mensagens e interaja com a turma',
-                seguranca TEXT DEFAULT 'Faça login para acesso completo',
-                cadastro TEXT DEFAULT 'Crie sua conta e faça parte',
-                
-                -- Timestamps
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            -- Habilitar RLS
-            ALTER TABLE textos_pagina ENABLE ROW LEVEL SECURITY;
-
-            -- Policy para leitura pública
-            CREATE POLICY "Textos são públicos" ON textos_pagina
-                FOR SELECT USING (true);
-
-            -- Policy para admin atualizar
-            CREATE POLICY "Admins podem atualizar textos" ON textos_pagina
-                FOR UPDATE USING (true);
-        `;
-
-        const { error: sqlError } = await supabase.rpc('execute_sql', { sql });
-
-        if (sqlError && sqlError.message.includes('does not exist')) {
-            // Se a função execute_sql não existe, usar SQL direto pelo dashboard
-            console.warn('⚠️  RPC execute_sql não disponível. Execute o SQL manualmente no dashboard Supabase');
-            console.log('\n📋 SQL a executar:\n', sql);
-            return false;
-        }
-
-        if (sqlError) {
-            console.error('❌ Erro ao criar tabela:', sqlError);
-            return false;
-        }
-
-        // Verificar se a tabela foi criada
-        const { data, error } = await supabase
-            .from('textos_pagina')
-            .select('*')
-            .limit(1);
-
-        if (error) {
-            console.error('❌ Erro ao verificar tabela:', error.message);
-            return false;
-        }
-
-        // Inserir valores padrão se tabela estiver vazia
-        const { data: existing } = await supabase
+        // Verificar se tabela já existe tentando fazer uma query
+        const { data: tableCheck, error: checkError } = await supabase
             .from('textos_pagina')
             .select('id')
             .limit(1);
 
-        if (!existing || existing.length === 0) {
-            const { error: insertError } = await supabase
-                .from('textos_pagina')
-                .insert([{
-                    tituloMain: 'Sala 205 - Anexo',
-                    subtituloMain: 'Irmã Maria Teresa (EEBIMT)',
-                    descricaoHero: 'Conheça a história, memórias e projetos da nossa turma',
-                    btnExplorar: 'Explorar',
-                    tituloGaleria: 'Galeria de Fotos',
-                    subtituloGaleria: 'Momentos especiais da Sala 205',
-                    tituloComunidade: 'Participe da Comunidade',
-                    subtituloComunidade: 'Conecte-se com seus colegas de turma',
-                    comentarios: 'Deixe mensagens e interaja com a turma',
-                    seguranca: 'Faça login para acesso completo',
-                    cadastro: 'Crie sua conta e faça parte'
-                }]);
+        if (!checkError) {
+            console.log('✅ Tabela textos_pagina já existe');
 
-            if (insertError) {
-                console.error('❌ Erro ao inserir dados padrão:', insertError);
-            } else {
-                console.log('✅ Dados padrão inseridos');
+            // Se tabela existe, verificar se tem dados
+            const { data: existing, error: existError } = await supabase
+                .from('textos_pagina')
+                .select('*');
+
+            if (!existError && (!existing || existing.length === 0)) {
+                console.log('📝 Inserindo dados padrão...');
+                const { error: insertError } = await supabase
+                    .from('textos_pagina')
+                    .insert([{
+                        tituloMain: 'Sala 205 - Anexo',
+                        subtituloMain: 'Irmã Maria Teresa (EEBIMT)',
+                        descricaoHero: 'Conheça a história, memórias e projetos da nossa turma',
+                        btnExplorar: 'Explorar',
+                        tituloGaleria: 'Galeria de Fotos',
+                        subtituloGaleria: 'Momentos especiais da Sala 205',
+                        tituloComunidade: 'Participe da Comunidade',
+                        subtituloComunidade: 'Conecte-se com seus colegas de turma',
+                        comentarios: 'Deixe mensagens e interaja com a turma',
+                        seguranca: 'Faça login para acesso completo',
+                        cadastro: 'Crie sua conta e faça parte'
+                    }]);
+
+                if (insertError) {
+                    console.error('⚠️  Erro ao inserir dados padrão:', insertError.message);
+                } else {
+                    console.log('✅ Dados padrão inseridos');
+                }
             }
+            return true;
         }
 
-        console.log('✅ Tabela textos_pagina criada com sucesso!');
-        return true;
+        // Se tabela não existe, exibir instruções
+        if (checkError && checkError.message.includes('relation "public.textos_pagina" does not exist')) {
+            console.warn('\n⚠️  Tabela textos_pagina não existe!\n');
+            console.log('📋 Execute o SQL abaixo no Dashboard do Supabase:');
+            console.log('   1. Vá para: https://supabase.com/dashboard/project/[seu-projeto]/sql');
+            console.log('   2. Clique em "New Query"');
+            console.log('   3. Cole o SQL do arquivo: sql/TEXTOS_PAGINA_SETUP.sql\n');
+            
+            console.log('Ou execute esse script depois de criar a tabela.\n');
+            return false;
+        }
+
+        console.error('❌ Erro desconhecido:', checkError);
+        return false;
 
     } catch (error) {
         console.error('❌ Erro:', error.message);
@@ -130,5 +86,10 @@ async function setupTextosTable() {
 
 // Executar
 setupTextosTable().then(success => {
+    if (success) {
+        console.log('\n✅ Setup da tabela textos_pagina concluído!');
+    } else {
+        console.log('\n⚠️  Execute manualmente o SQL no dashboard Supabase');
+    }
     process.exit(success ? 0 : 1);
 });
