@@ -856,18 +856,25 @@ app.put('/api/usuarios/renomear', async (req, res) => {
 
 // GET users (admin)
 app.get('/api/usuarios', async (req, res) => {
+    if (!supabase) {
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
+
     try {
         const { data: usuarios, error } = await supabase
             .from('usuarios')
             .select('id, nome, created, role, is_admin')
             .order('created', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Erro ao listar usuários:', error);
+            return res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
+        }
 
         res.json(usuarios || []);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao listar usuários' });
+        console.error('Erro na rota de usuários:', error);
+        res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
     }
 });
 
@@ -1444,7 +1451,11 @@ app.delete('/api/galeria/:id', async (req, res) => {
     const { id } = req.params;
 
     if (!isAdminToken(req)) {
-        return res.status(401).json({ error: 'Acesso negado' });
+        return res.status(401).json({ error: 'Acesso negado - token de admin inválido' });
+    }
+
+    if (!supabase) {
+        return res.status(503).json({ error: 'Supabase não configurado' });
     }
 
     try {
@@ -1458,7 +1469,14 @@ app.delete('/api/galeria/:id', async (req, res) => {
             .eq('id', id)
             .single();
 
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+            console.error('Erro ao buscar item da galeria:', fetchError);
+            return res.status(500).json({ error: `Erro ao buscar item: ${fetchError.message}` });
+        }
+
+        if (!galeriaItem) {
+            return res.status(404).json({ error: 'Imagem não encontrada' });
+        }
 
         // Se tem storage_key, deletar do Supabase Storage
         if (hasStorageKey && galeriaItem?.storage_key) {
@@ -1481,13 +1499,16 @@ app.delete('/api/galeria/:id', async (req, res) => {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Erro ao deletar registro:', error);
+            return res.status(500).json({ error: `Erro ao deletar: ${error.message}` });
+        }
 
         await ensureGaleriaPositions();
         res.json({ message: 'Imagem/vídeo apagado com sucesso!' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao apagar imagem/vídeo' });
+        console.error('Erro na rota de deleção:', error);
+        res.status(500).json({ error: `Erro ao apagar imagem/vídeo: ${error.message}` });
     }
 });
 

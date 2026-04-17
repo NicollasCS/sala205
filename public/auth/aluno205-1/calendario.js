@@ -6,7 +6,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   const calendarioAluno = document.getElementById('calendarioAluno');
   const carregando = document.getElementById('carregandoCalendario');
 
-  if (!usuario || usuario.nome !== 'aluno205-1') {
+  // Permitir aluno205-1, dev205-1 e admins
+  const isAuthorized = usuario && (
+    usuario.nome === 'aluno205-1' || 
+    usuario.nome === 'dev205-1' || 
+    usuario.nome === 'administrador_turma205-1' ||
+    usuario.is_admin ||
+    usuario.is_root
+  );
+  
+  if (!isAuthorized) {
     acessoNegado.style.display = 'block';
     calendarioAluno.style.display = 'none';
     carregando.style.display = 'none';
@@ -33,7 +42,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     calendarioWeek.innerHTML = semana.map((dia) => {
       const eventosDia = eventosPorDia[dia.weekday] || [];
       return `
-        <article class="dia-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">
+        <article class="dia-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 1rem; height: auto; display: flex; flex-direction: column; justify-content: flex-start;">
           <div>
             <h3 style="margin: 0 0 0.5rem; font-size: 1.05rem;">${dia.label}</h3>
             <span style="color: #94a3b8; font-size: 0.85rem;">${formatDate(dia.date)}</span>
