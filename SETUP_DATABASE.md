@@ -7,9 +7,13 @@
 1. **Acesse seu projeto Supabase**: https://supabase.com/dashboard
 2. **Navegue para "SQL Editor"** (painel esquerdo)
 3. **Clique em "New Query"** ou **"New SQL snippet"**
-4. **Copie TODO o conteúdo de `SUPABASE_SETUP.sql`** deste repositório
+4. **⚠️ IMPORTANTE: Copie TODO o conteúdo de `SUPABASE_SETUP_SIMPLES.sql`** (NÃO use o SUPABASE_SETUP.sql)
 5. **Cole no editor do Supabase** e execute (botão "Run" ou Ctrl+Enter)
 6. **Aguarde a conclusão** (você deve ver "Success" em verde)
+
+**💡 Se receber erro sobre tabela já existente:**
+- Execute em separado apenas o SQL para as tabelas que faltam
+- Ou limpe o Supabase e execute do zero
 
 ### Passo 2: Verificar se Funcionou
 
