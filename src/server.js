@@ -36,6 +36,12 @@ const supabase = supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey)
     : null;
 
+if (!supabase) {
+    console.error('❌ Supabase não configurado. Verifique SUPABASE_URL e SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY.');
+} else {
+    console.log('✅ Supabase conectado:', supabaseUrl);
+}
+
 // 🛡️ Filtro simples de palavrões
 const palavroesProibidos = ['puta', 'merda', 'caralho', 'bosta', 'cu', 'fuck', 'shit', 'ass', 'damn'];
 function profanityFilterIsProfane(text) {
@@ -448,6 +454,10 @@ app.post('/api/login', async (req, res) => {
         }
 
         // Buscar usuário na base de dados - comparar MD5
+        if (!supabase) {
+            return res.status(503).json({ error: 'Supabase não configurado' });
+        }
+
         const { data: user, error } = await supabase
             .from('usuarios')
             .select('*')
@@ -456,6 +466,7 @@ app.post('/api/login', async (req, res) => {
             .single();
 
         if (error || !user) {
+            console.warn(`⚠️ Usuário '${nome}' não encontrado no banco de dados`);
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
@@ -888,18 +899,36 @@ app.put('/api/usuarios/renomear', async (req, res) => {
 
 // GET users (admin)
 app.get('/api/usuarios', async (req, res) => {
+    if (!supabase) {
+        console.error('❌ Supabase não configurado');
+        return res.status(503).json({ error: 'Supabase não configurado' });
+    }
+
     try {
+        console.log('📥 Buscando usuários do Supabase...');
         const { data: usuarios, error } = await supabase
             .from('usuarios')
-            .select('id, nome, created, role, is_admin')
-            .order('created', { ascending: false });
+            .select('id, nome, created');
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Erro ao buscar usuários:', error);
+            
+            // Se é erro de tabela não existir, retornar array vazio
+            if (error.code === 'PGRST205' || error.message?.includes('usuarios')) {
+                console.warn('⚠️ Tabela usuarios não encontrada');
+                return res.json([]);
+            }
 
-        res.json(usuarios || []);
+            return res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
+        }
+
+        console.log(`✅ ${usuarios?.length || 0} usuários encontrados`);
+        // Normalizar usuários para incluir role e is_admin baseado em regras de negócio
+        const normalized = usuarios?.map(u => normalizeUser(u)) || [];
+        res.json(normalized);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao listar usuários' });
+        console.error('❌ Erro na rota de usuários:', error.message);
+        res.status(500).json({ error: `Erro ao listar usuários: ${error.message}` });
     }
 });
 
