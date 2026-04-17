@@ -689,7 +689,7 @@ function abrirMudarTema(e) {
     e.preventDefault();
     const modal = document.getElementById('settingsModal');
     const settingsBody = document.getElementById('settingsBody');
-    const temaAtual = localStorage.getItem('tema') || 'blue';
+    const temaAtual = localStorage.getItem('tema') || 'green';
     
     if (modal && settingsBody) {
         settingsBody.innerHTML = `
@@ -720,7 +720,7 @@ function salvarTema(tema) {
 }
 
 function carregarTema() {
-    const temaArmazenado = localStorage.getItem('tema') || 'blue';
+    const temaArmazenado = localStorage.getItem('tema') || 'green';
     aplicarTema(temaArmazenado);
 }
 
@@ -762,11 +762,15 @@ function atualizarMenuAdmin() {
         if (opAdmin) {
             opAdmin.style.display = 'flex';
         }
+    } else if (opAdmin) {
+        opAdmin.style.display = 'none';
     }
     
     // Mostrar seletor de temas no navbar quando logado
     if (usuario && temaBtn) {
         temaBtn.style.display = 'inline-block';
+    } else if (temaBtn) {
+        temaBtn.style.display = 'none';
     }
 }
 
