@@ -423,3 +423,54 @@ export async function deleteTableRow(req, res) {
         res.status(500).json({ error: 'Erro ao deletar' });
     }
 }
+
+/**
+ * Verificar sessão do usuário
+ */
+export async function verifySession(req, res) {
+    const { token } = req.headers;
+
+    if (!token) {
+        return res.status(400).json({ error: 'Token não fornecido.' });
+    }
+
+    try {
+        const { data, error } = await supabase.auth.getUser(token);
+
+        if (error || !data) {
+            return res.status(401).json({ error: 'Token inválido ou expirado.' });
+        }
+
+        res.json({ message: 'Sessão válida.', user: data });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao verificar sessão.' });
+    }
+}
+
+/**
+ * Login do usuário
+ */
+export async function login(req, res) {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email ou senha não fornecidos.' });
+    }
+
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            return res.status(401).json({ error: 'Credenciais inválidas.' });
+        }
+
+        res.json({ message: 'Login realizado com sucesso.', token: data.session.access_token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao realizar login.' });
+    }
+}
