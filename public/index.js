@@ -413,8 +413,8 @@ async function carregarGaleria() {
     try {
         const response = await fetch(`/api/galeria?page=${galeriaAtualPage}`);
         const data = await response.json();
-        renderizarGaleria(data.items);
-        atualizarPaginacao(data);
+        renderizarGaleria(data.data);
+        atualizarPaginacao(data.pagination);
     } catch (err) {
         console.error('Erro ao carregar galeria:', err);
     }
@@ -459,14 +459,14 @@ function renderizarGaleria(items) {
     });
 }
 
-function atualizarPaginacao(data) {
+function atualizarPaginacao(pagination) {
     const paginationContainer = document.getElementById('galeriaPagination');
     const prevBtn = document.getElementById('galeriaPrevBtn');
     const nextBtn = document.getElementById('galeriaNextBtn');
     
-    if (!paginationContainer) return;
+    if (!paginationContainer || !pagination) return;
     
-    if (data.totalPages <= 1) {
+    if (pagination.totalPages <= 1) {
         paginationContainer.style.display = 'none';
         return;
     }
@@ -474,10 +474,10 @@ function atualizarPaginacao(data) {
     paginationContainer.style.display = 'flex';
     
     if (prevBtn) {
-        prevBtn.style.display = galeriaAtualPage > 0 ? 'flex' : 'none';
+        prevBtn.style.display = pagination.hasPrevious ? 'flex' : 'none';
     }
     if (nextBtn) {
-        nextBtn.style.display = data.hasNext ? 'flex' : 'none';
+        nextBtn.style.display = pagination.hasNext ? 'flex' : 'none';
     }
 }
 
@@ -497,6 +497,9 @@ window.carregarPaginaAnteriorGaleria = function() {
 // DESCRIPTION LOADING
 // ============================================
 
+let ultimaDescricaoCarregada = null;
+let intervalPollingDescricao = null;
+
 async function carregarDescricaoTurma() {
     try {
         const response = await fetch('/api/descricao-turma');
@@ -506,6 +509,7 @@ async function carregarDescricaoTurma() {
         const container = document.getElementById('descricaoTurma');
         if (container && data.descricao) {
             container.innerHTML = data.descricao;
+            ultimaDescricaoCarregada = data.descricao;
             // Cachear no localStorage
             localStorage.setItem('descricaoTurma', data.descricao);
         }
@@ -516,11 +520,59 @@ async function carregarDescricaoTurma() {
         const descricaoCache = localStorage.getItem('descricaoTurma');
         if (container && descricaoCache) {
             container.innerHTML = descricaoCache;
+            ultimaDescricaoCarregada = descricaoCache;
         } else if (container) {
             container.innerHTML = 'Espaço criado para reunir memórias e fotos da turma.<br>Um projeto gerido com dedicação e amor.';
         }
     }
 }
+
+/**
+ * Iniciar polling para atualizar descrição periodicamente
+ */
+function iniciarPollingDescricao() {
+    // Verificar a cada 5 segundos
+    intervalPollingDescricao = setInterval(async () => {
+        try {
+            const response = await fetch('/api/descricao-turma');
+            if (!response.ok) return;
+            const data = await response.json();
+            
+            // Se a descrição mudou, atualizar
+            if (data.descricao && data.descricao !== ultimaDescricaoCarregada) {
+                const container = document.getElementById('descricaoTurma');
+                if (container) {
+                    container.innerHTML = data.descricao;
+                    ultimaDescricaoCarregada = data.descricao;
+                    localStorage.setItem('descricaoTurma', data.descricao);
+                    console.log('✅ Descrição atualizada!');
+                }
+            }
+        } catch (err) {
+            // Silenciosamente ignorar erros de polling
+        }
+    }, 5000);
+}
+
+/**
+ * Parar polling quando a página perder foco
+ */
+function pararPollingDescricao() {
+    if (intervalPollingDescricao) {
+        clearInterval(intervalPollingDescricao);
+    }
+}
+
+// Listeners para quando a página voltar/sair do foco
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        pararPollingDescricao();
+    } else {
+        // Quando volta ao foco, carregar descrição e reiniciar polling
+        carregarDescricaoTurma();
+        iniciarPollingDescricao();
+    }
+});
 
 // ============================================
 // PAGE TEXTS LOADING
@@ -639,6 +691,19 @@ function atualizarStatusLogin() {
     // Ajustar grid de blocos
     ajustarGridAbout();
 }
+
+function ajustarGridAbout() {
+    const aboutContent = document.querySelector('.about-content');
+    if (!aboutContent) return;
+
+    if (window.innerWidth < 768) {
+        aboutContent.style.gridTemplateColumns = '1fr';
+    } else {
+        aboutContent.style.gridTemplateColumns = '1fr 1fr';
+    }
+}
+
+window.addEventListener('resize', ajustarGridAbout);
 
 // ============================================
 // SETTINGS & USER MANAGEMENT
@@ -967,114 +1032,64 @@ function atualizarMenuAdmin() {
 }
 
 // ============================================
-// GERENCIAR BLOCOS (ADMIN)
-// ============================================
-
-function carregarEstadoBlocos() {
-    const blocosPersistidos = JSON.parse(localStorage.getItem('blocosOcultos') || '{}');
-    Object.keys(blocosPersistidos).forEach(bloco => {
-        if (blocosPersistidos[bloco]) {
-            const card = document.getElementById(`card-${bloco}`);
-            if (card) {
-                card.classList.add('hidden');
-            }
-        }
-    });
-    
-    // Ajustar grid da seção About
-    ajustarGridAbout();
-}
-
-function ajustarGridAbout() {
-    const aboutFeatures = document.getElementById('aboutFeatures');
-    if (!aboutFeatures) return;
-    
-    const cardsVisiveis = aboutFeatures.querySelectorAll('.feature-card:not(.hidden)').length;
-    
-    if (cardsVisiveis <= 1) {
-        aboutFeatures.style.display = 'flex';
-        aboutFeatures.style.justifyContent = 'center';
-    } else {
-        aboutFeatures.style.display = 'grid';
-    }
-}
-
-window.editarBloco = function(bloco) {
-    const card = document.getElementById(`card-${bloco}`);
-    if (!card) return;
-    
-    const blocosPersistidos = JSON.parse(localStorage.getItem('blocosOcultos') || '{}');
-    
-    // Alternar visibilidade
-    blocosPersistidos[bloco] = !blocosPersistidos[bloco];
-    localStorage.setItem('blocosOcultos', JSON.stringify(blocosPersistidos));
-    
-    // Atualizar UI
-    if (blocosPersistidos[bloco]) {
-        card.classList.add('hidden');
-    } else {
-        card.classList.remove('hidden');
-    }
-    
-    // Ajustar grid
-    ajustarGridAbout();
-}
-
-// ============================================
 // PAGE INITIALIZATION
 // ============================================
 
 window.addEventListener('DOMContentLoaded', function() {
-    // Dark mode
-    carregarModoDark();
-    
-    // Theme
-    carregarTema();
-    
-    // Service Worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(err => {
-            console.log('Service Worker registration failed:', err);
-        });
-    }
-    
-    // Initialize components
-    atualizarStatusLogin();
-    atualizarMenuAdmin();
-    carregarEstadoBlocos();
-    initPopupDrag();
-    initSidebar();
-    initCharCounter();
-    
-    // Close settings menu when clicking outside
-    document.addEventListener('click', function(e) {
-        const settingsMenu = document.getElementById('settingsMenu');
-        const botaoSettings = document.getElementById('botaoSettings');
-        if (settingsMenu && !settingsMenu.contains(e.target) && !botaoSettings.contains(e.target)) {
-            settingsMenu.classList.remove('active');
+    try {
+        // Dark mode
+        carregarModoDark();
+        
+        // Theme
+        carregarTema();
+        
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => {
+                console.log('Service Worker registration failed:', err);
+            });
         }
-    });
-    
-    // Close modal when clicking outside
-    const modal = document.getElementById('settingsModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                fecharSettings();
+        
+        // Initialize components
+        atualizarStatusLogin();
+        atualizarMenuAdmin();
+        initPopupDrag();
+        initSidebar();
+        initCharCounter();
+        
+        // Close settings menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const settingsMenu = document.getElementById('settingsMenu');
+            const botaoSettings = document.getElementById('botaoSettings');
+            if (settingsMenu && !settingsMenu.contains(e.target) && !botaoSettings.contains(e.target)) {
+                settingsMenu.classList.remove('active');
             }
         });
+        
+        // Close modal when clicking outside
+        const modal = document.getElementById('settingsModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    fecharSettings();
+                }
+            });
+        }
+        
+        // Load data
+        carregarTextosPageina();
+        carregarComentarios();
+        carregarGaleria();
+        carregarDescricaoTurma();
+        iniciarPollingDescricao();
+    } catch (error) {
+        console.error('Erro na inicialização da página:', error);
+    } finally {
+        // Esconder tela de carregamento quando a página está pronta ou em caso de falha
+        setTimeout(() => {
+            esconderLoadingScreen();
+        }, 500);
     }
-    
-    // Load data
-    carregarTextosPageina();
-    carregarComentarios();
-    carregarGaleria();
-    carregarDescricaoTurma();
-    
-    // Esconder tela de carregamento quando a página está pronta
-    setTimeout(() => {
-        esconderLoadingScreen();
-    }, 500);
 });
 
 // Cleanup on page unload

@@ -114,9 +114,13 @@ async function verificarSessao() {
 
         if (data.authenticated && data.user) {
             adminState.userRole = data.user.role;
+            localStorage.setItem('userRole', data.user.role);
+            localStorage.setItem('userName', data.user.nome || data.user.name || '');
             showAdminPanel();
         } else {
             // Sessão inválida ou expirada
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userName');
             qs('loginScreen').style.display = 'block';
             qs('adminPanel').style.display = 'none';
         }
@@ -368,11 +372,6 @@ function bindEvents() {
     // Event listeners para Database
     qs('database-refresh-btn')?.addEventListener('click', loadDatabase);
 
-    // Event listeners para Editar Textos
-    qs('salvarTextos')?.addEventListener('click', salvarTextos);
-    qs('previewTextos')?.addEventListener('click', previewTextos);
-    qs('resetTextos')?.addEventListener('click', resetTextos);
-
     // Contador de caracteres
     qs('atualizacaoTexto')?.addEventListener('input', (e) => {
         const count = e.target.value.length;
@@ -494,6 +493,8 @@ async function handleLoginSubmit(e) {
 
         // Login bem-sucedido! O cookie foi automaticamente setado pelo servidor
         adminState.userRole = data.user.role;
+        localStorage.setItem('userRole', data.user.role);
+        localStorage.setItem('userName', data.user.nome || data.user.name || '');
         showAdminPanel();
         qs('adminLoginForm').reset();
         
@@ -591,6 +592,8 @@ function handleLogout() {
     }).then(() => {
         // Limpar estado local
         adminState.userRole = null;
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
         
         // Mostrar tela de login
         qs('adminPanel').style.display = 'none';
@@ -626,10 +629,12 @@ function changeTab(tab) {
         filterLogs('atualizacoes');
     } else if (tab === 'database') {
         loadDatabase();
-    } else if (tab === 'textos') {
-        carregarTextos();
     }
 }
+
+const API_BASE_URL = window.location.origin && window.location.origin !== 'null'
+    ? window.location.origin
+    : 'http://localhost:3000';
 
 async function apiFetch(url, options = {}) {
     const headers = {
@@ -638,6 +643,10 @@ async function apiFetch(url, options = {}) {
 
     const userRole = localStorage.getItem('userRole');
     const userName = localStorage.getItem('userName');
+
+    const requestUrl = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : `${API_BASE_URL}${url}`;
 
     if (options.admin !== false && userRole) {
         if (userRole === 'dev') {
@@ -654,7 +663,7 @@ async function apiFetch(url, options = {}) {
         headers['x-requester-name'] = userName;
     }
 
-    return fetch(url, {
+    return fetch(requestUrl, {
         ...options,
         credentials: 'include', // Incluir cookies HttpOnly automaticamente
         headers
@@ -716,140 +725,6 @@ async function saveDescricao() {
 // EDITAR TEXTOS
 // ============================================
 
-async function carregarTextos() {
-    try {
-        const res = await apiFetch('/api/textos-pagina', { admin: false });
-        if (!res.ok) throw new Error(`Erro ${res.status}`);
-        
-        const textos = await res.json();
-        
-        // Preencher campos com valores salvos
-        qs('textoTituloMain').value = textos?.tituloMain || 'Sala 205 - Anexo';
-        qs('textoSubtituloMain').value = textos?.subtituloMain || '';
-        qs('textoDescricaoHero').value = textos?.descricaoHero || '';
-        qs('textoBtnExplorar').value = textos?.btnExplorar || 'Explorar';
-        qs('textoTituloGaleria').value = textos?.tituloGaleria || 'Galeria de Fotos';
-        qs('textoSubtituloGaleria').value = textos?.subtituloGaleria || '';
-        qs('textoTituloComunidade').value = textos?.tituloComunidade || '';
-        qs('textoSubtituloComunidade').value = textos?.subtituloComunidade || '';
-        qs('textoComentarios').value = textos?.comentarios || '';
-        qs('textoSeguranca').value = textos?.seguranca || '';
-        qs('textoCadastro').value = textos?.cadastro || '';
-    } catch (e) {
-        console.error('Erro ao carregar textos:', e);
-        // Valores padrão em caso de erro
-        qs('textoTituloMain').value = 'Sala 205 - Anexo';
-        qs('textoBtnExplorar').value = 'Explorar';
-        qs('textoTituloGaleria').value = 'Galeria de Fotos';
-    }
-}
-
-async function salvarTextos() {
-    const textos = {
-        tituloMain: qs('textoTituloMain').value.trim(),
-        subtituloMain: qs('textoSubtituloMain').value.trim(),
-        descricaoHero: qs('textoDescricaoHero').value.trim(),
-        btnExplorar: qs('textoBtnExplorar').value.trim(),
-        tituloGaleria: qs('textoTituloGaleria').value.trim(),
-        subtituloGaleria: qs('textoSubtituloGaleria').value.trim(),
-        tituloComunidade: qs('textoTituloComunidade').value.trim(),
-        subtituloComunidade: qs('textoSubtituloComunidade').value.trim(),
-        comentarios: qs('textoComentarios').value.trim(),
-        seguranca: qs('textoSeguranca').value.trim(),
-        cadastro: qs('textoCadastro').value.trim()
-    };
-
-    // Validações básicas
-    if (!textos.tituloMain) {
-        alert('O título principal é obrigatório');
-        return;
-    }
-
-    try {
-        const res = await apiFetch('/api/textos-pagina', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(textos)
-        });
-
-        if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || `Erro ${res.status}`);
-        }
-
-        alert('✅ Todos os textos foram salvos com sucesso!');
-        // Recarregar os dados
-        setTimeout(carregarTextos, 500);
-    } catch (e) {
-        console.error('Erro ao salvar textos:', e);
-        alert(`❌ Erro ao salvar: ${e.message}`);
-    }
-}
-
-function previewTextos() {
-    const modalContent = document.createElement('div');
-    modalContent.innerHTML = `
-        <div style="background: var(--panel-bg); border-radius: 16px; padding: 2rem; max-width: 800px; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 1rem;">
-                <h2 style="color: var(--text); font-size: 1.5rem; margin: 0;"><i class="fas fa-eye"></i> Prévia dos Textos</h2>
-                <button onclick="this.closest('.preview-modal-overlay').remove()" style="background: transparent; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer;">×</button>
-            </div>
-            <div style="color: var(--text);">
-                <div style="margin-bottom: 2rem;">
-                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 0.5rem;">${qs('textoTituloMain').value || 'Título'}</h3>
-                    <p style="color: var(--muted); font-size: 1.1rem; margin: 0.5rem 0;">${qs('textoSubtituloMain').value || 'Subtítulo'}</p>
-                    <p style="color: var(--text); margin: 1rem 0;">${qs('textoDescricaoHero').value || 'Descrição'}</p>
-                </div>
-
-                <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
-
-                <div style="margin-bottom: 2rem;">
-                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 1rem;">${qs('textoTituloGaleria').value || 'Galeria'}</h3>
-                    <p style="color: var(--muted);">${qs('textoSubtituloGaleria').value || 'Descrição da galeria'}</p>
-                </div>
-
-                <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
-
-                <div>
-                    <h3 style="color: var(--primary); font-size: 1.3rem; margin-bottom: 1rem;">${qs('textoTituloComunidade').value || 'Comunidade'}</h3>
-                    <p style="color: var(--muted);">${qs('textoSubtituloComunidade').value || 'Descrição da comunidade'}</p>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'preview-modal-overlay';
-    overlay.style.cssText = `
-        position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
-        display: flex; align-items: center; justify-content: center; 
-        z-index: 5000;
-    `;
-    overlay.appendChild(modalContent);
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-    });
-    document.body.appendChild(overlay);
-}
-
-function resetTextos() {
-    if (confirm('Tem certeza que deseja restaurar os textos padrão?')) {
-        qs('textoTituloMain').value = 'Sala 205 - Anexo';
-        qs('textoSubtituloMain').value = 'Irmã Maria Teresa (EEBIMT)';
-        qs('textoDescricaoHero').value = 'Conheça a história, memórias e projetos da nossa turma';
-        qs('textoBtnExplorar').value = 'Explorar';
-        qs('textoTituloGaleria').value = 'Galeria de Fotos';
-        qs('textoSubtituloGaleria').value = 'Momentos especiais da Sala 205';
-        qs('textoTituloComunidade').value = 'Participe da Comunidade';
-        qs('textoSubtituloComunidade').value = 'Conecte-se com seus colegas de turma';
-        qs('textoComentarios').value = 'Deixe mensagens e interaja com a turma';
-        qs('textoSeguranca').value = 'Faça login para acesso completo';
-        qs('textoCadastro').value = 'Crie sua conta e faça parte';
-        
-        alert('Textos restaurados para os padrões. Clique em "Salvar" para confirmar.');
-    }
-}
-
 async function loadComments() {
     try {
         const res = await apiFetch('/api/comentarios', { admin: false });
@@ -891,14 +766,32 @@ async function loadComments() {
 
 window.deleteComment = async (id) => {
     if (!confirm('Apagar comentário?')) return;
-    await apiFetch(`/api/comentarios/${id}`, { method: 'DELETE' });
-    loadComments();
+    try {
+        const res = await apiFetch(`/api/comentarios/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Erro ao apagar comentário');
+        }
+        loadComments();
+    } catch (error) {
+        console.error('Erro ao apagar comentário:', error);
+        alert(error.message || 'Não foi possível apagar o comentário.');
+    }
 };
 
 window.togglePin = async (id) => {
     if (!confirm('Fixar/desfixar comentário no topo?')) return;
-    await apiFetch(`/api/comentarios/${id}/pin`, { method: 'PUT' });
-    loadComments();
+    try {
+        const res = await apiFetch(`/api/comentarios/${id}/pin`, { method: 'PUT' });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Erro ao fixar comentário');
+        }
+        loadComments();
+    } catch (error) {
+        console.error('Erro ao fixar comentário:', error);
+        alert(error.message || 'Não foi possível fixar o comentário.');
+    }
 };
 
 async function loadUsers() {
@@ -1130,6 +1023,8 @@ async function loadCalendario() {
         adminState.calendarioItems = eventos;
 
         const semana = getCurrentWeekDates();
+        const semanaDatas = semana.map(d => d.iso);
+        
         const eventosPorDia = eventos.reduce((acc, evento) => {
             const data = evento.data ? new Date(evento.data) : null;
             if (!data || isNaN(data.getTime())) return acc;
@@ -1138,6 +1033,12 @@ async function loadCalendario() {
             acc[key].push(evento);
             return acc;
         }, {});
+
+        // Eventos fora da semana atual
+        const eventosOutrosPeriodos = eventos.filter(e => {
+            const data = e.data ? new Date(e.data).toISOString().slice(0, 10) : null;
+            return data && !semanaDatas.includes(data);
+        });
 
         container.innerHTML = `
             <div class="calendar-week-grid">
@@ -1168,6 +1069,13 @@ async function loadCalendario() {
                     `;
                 }).join('')}
             </div>
+            ${eventosOutrosPeriodos.length > 0 ? `
+                <div style="margin-top: 2rem;">
+                    <button class="btn-secondary" onclick="abrirOutrosEventosModal()" style="width: 100%;">
+                        <i class="fas fa-history"></i> Ver Outros Eventos (${eventosOutrosPeriodos.length})
+                    </button>
+                </div>
+            ` : ''}
         `;
 
         if (!eventos.length) {
@@ -1192,6 +1100,50 @@ async function loadCalendario() {
         qs('calendario-list').innerHTML = `<p class="error-text">Erro ao carregar calendário: ${e.message}</p>`;
     }
 }
+
+window.abrirOutrosEventosModal = () => {
+    const eventos = adminState.calendarioItems || [];
+    const semana = getCurrentWeekDates();
+    const semanaDatas = semana.map(d => d.iso);
+    const eventosOutros = eventos.filter(e => {
+        const data = e.data ? new Date(e.data).toISOString().slice(0, 10) : null;
+        return data && !semanaDatas.includes(data);
+    }).sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Outros Eventos</h3>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                ${eventosOutros.length > 0 ? eventosOutros.map(e => `
+                    <div class="event-list-item" style="padding: 1rem; border-bottom: 1px solid #e5e7eb; cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;">${e.titulo || 'Sem título'}</div>
+                                <div style="font-size: 0.9rem; color: #666; margin-top: 0.3rem;">${new Date(e.data).toLocaleDateString('pt-BR')}</div>
+                                <div style="font-size: 0.85rem; color: #999; margin-top: 0.3rem;">${e.tipo || 'Aviso'}</div>
+                                ${e.descricao ? `<div style="font-size: 0.9rem; margin-top: 0.5rem;">${e.descricao}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="edit-btn" onclick="abrirCalendarioModal('${e.id}')"><i class="fas fa-edit"></i></button>
+                                <button class="delete-btn" onclick="deletarCalendario('${e.id}'); this.closest('.modal-overlay').remove();"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') : '<p style="text-align: center; padding: 2rem; color: #999;">Nenhum outro evento</p>'}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+};
 
 function getCurrentWeekDates() {
     const hoje = new Date();
@@ -1356,12 +1308,9 @@ async function salvarVideoComUpload(titulo, descricao, data) {
     formData.append('data', data || '');
     formData.append('tipo_midia', 'video');
 
-    // Enviar como FormData
-    const res = await fetch('/api/galeria/video-upload', {
+    // Enviar como FormData usando o helper comum de API
+    const res = await apiFetch('/api/galeria/video-upload', {
         method: 'POST',
-        headers: {
-            'x-admin-token': ADMIN_TOKEN
-        },
         body: formData
     });
 
@@ -2241,7 +2190,18 @@ async function loadDatabase() {
                                     ${Object.keys(row).map((key, colIdx) => {
                                         const val = row[key];
                                         const isPasswordField = key.toLowerCase().includes('senha') || key.toLowerCase().includes('password');
-                                        const displayVal = typeof val === 'object' ? JSON.stringify(val).substring(0, 50) : String(val);
+                                        
+                                        // Truncar URLs para "data:image/jpeg;base64" etc
+                                        let displayVal = val == null ? '' : String(val);
+                                        if (displayVal.startsWith('data:')) {
+                                            const match = displayVal.match(/^data:[^,]+;base64/);
+                                            displayVal = match ? match[0] : displayVal.substring(0, 50);
+                                        } else if (displayVal.startsWith('http://') || displayVal.startsWith('https://')) {
+                                            displayVal = displayVal.substring(0, 50) + (displayVal.length > 50 ? '...' : '');
+                                        } else if (typeof val === 'object') {
+                                            displayVal = JSON.stringify(val).substring(0, 50);
+                                        }
+                                        
                                         if (isPasswordField && val) {
                                             const inputId = `password-${tableData.tableName}-${idx}-${colIdx}`;
                                             return `
@@ -2251,7 +2211,7 @@ async function loadDatabase() {
                                             `;
                                         }
                                         return `
-                                            <td>${displayVal}</td>
+                                            <td title="${String(val).substring(0, 100)}">${displayVal}</td>
                                         `;
                                     }).join('')}
                                     ${isDev ? `<td class="table-actions-cell"><button class="btn-delete-row" onclick="deleteDatabaseRow('${tableData.tableName}', '${row.id ?? ''}')"><i class="fas fa-trash-alt"></i> Excluir</button></td>` : ''}

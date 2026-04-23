@@ -11,16 +11,9 @@ export async function getTextos(req, res) {
             .limit(1)
             .single();
 
-        if (error?.code === 'PGRST116') {
-            // Tabela vazia, retornar valores padrão
+        // Se tabela não existe ou está vazia, retornar valores padrão
+        if (error?.code === 'PGRST116' || error?.code === 'PGRST205' || error?.message?.includes('textos_pagina')) {
             return res.json(getTextosDefault());
-        }
-
-        if (error?.message?.includes('textos_pagina')) {
-            return res.status(503).json({ 
-                error: 'Tabela textos_pagina não configurada no Supabase.',
-                setup: 'Execute: node src/setup_textos_pagina.js ou veja docs/TEXTOS_PAGINA_SETUP.md'
-            });
         }
 
         if (error) throw error;
@@ -28,7 +21,8 @@ export async function getTextos(req, res) {
         res.json(data || getTextosDefault());
     } catch (error) {
         console.error('Erro ao buscar textos:', error);
-        res.status(500).json({ error: 'Erro ao buscar textos' });
+        // Retornar padrão em caso de erro também
+        res.json(getTextosDefault());
     }
 }
 
