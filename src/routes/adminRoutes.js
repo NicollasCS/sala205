@@ -27,4 +27,10 @@ router.get('/database/tables', requireAdmin, adminController.listTables);
 router.get('/database/table/:tableName', requireAdmin, adminController.getTableData);
 router.delete('/database/table/:tableName/row/:id', requireDev, adminController.deleteTableRow);
 
+// Verificar Sessão
+router.get('/verify', adminController.verifySession);
+
+// Login
+router.post('/login', adminController.login);
+
 export default router;
